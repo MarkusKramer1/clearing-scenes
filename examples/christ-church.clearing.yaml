@@ -1,0 +1,200 @@
+# Christ Church -- clearing examples
+#
+# Produced by scripts/run_clearing.py and checked cell by cell with
+# clearing.verify.propagate. Every step lists the vertices a robot
+# stands on; a robot sees D(v) from there and the evader may be
+# anywhere it is not seen.
+
+scene: christ-church
+scenario_file: ../scenes/christ-church.yaml
+
+graph_clear_label:
+  # Kolling & Carpin's tree recursion on a maximum spanning forest of
+  # the guard graph, one robot per swept vertex and per blocked edge.
+  # An upper bound in a model that charges every edge separately; the
+  # schedules below cover the frontier with a set cover over vertices
+  # instead, and need fewer.
+  robots: 26
+  root_vertex: 0
+  tree_edges: 86
+  non_tree_edges: 362
+  forest_components: 4
+
+tolerance:
+  # Cells no vertex sees. Small connected fragments of it are taken
+  # out of the evader space (see clearing.scene.Scene.excluded); the
+  # rest stays in and shows up as residual.
+  uncoverable_m2: 292.4
+  excluded_as_specks_m2: 270.28
+  speck_max_area_m2: 4
+
+runs:
+  - key: kolling
+    name: kolling/kolling
+    steps: 63
+    team_peak: 16
+    team_median: 11
+    cleared: False
+    cleared_except_uncoverable: True
+    residual_cells: 553
+    residual_m2: 22.12
+    recontamination_events: 0
+    recontaminated_cells: 0
+    makespan_s: 3225.9
+    order: kolling
+    steps_with_an_open_frontier: 0
+    frontier_cells_left_open: 0
+    steps_list:
+      # one line per step: the vertices held
+      - {t:   0, robots:   1, vertices: [0]}
+      - {t:   1, robots:   2, vertices: [0, 76]}
+      - {t:   2, robots:   3, vertices: [0, 8, 76]}
+      - {t:   3, robots:   4, vertices: [0, 8, 66, 76]}
+      - {t:   4, robots:   5, vertices: [0, 8, 42, 66, 76]}
+      - {t:   5, robots:   7, vertices: [0, 15, 42, 50, 66, 72, 76]}
+      - {t:   6, robots:   5, vertices: [0, 1, 25, 64, 66]}
+      - {t:   7, robots:   6, vertices: [0, 1, 25, 36, 46, 66]}
+      - {t:   8, robots:  11, vertices: [0, 1, 2, 3, 25, 36, 46, 54, 66, 69, 89]}
+      - {t:   9, robots:   7, vertices: [3, 6, 38, 46, 66, 69, 87]}
+      - {t:  10, robots:   5, vertices: [11, 18, 38, 66, 69]}
+      - {t:  11, robots:   4, vertices: [33, 38, 66, 69]}
+      - {t:  12, robots:   3, vertices: [9, 38, 66]}
+      - {t:  13, robots:   4, vertices: [9, 32, 38, 66]}
+      - {t:  14, robots:   5, vertices: [9, 31, 32, 38, 66]}
+      - {t:  15, robots:   7, vertices: [9, 31, 32, 38, 47, 66, 84]}
+      - {t:  16, robots:   8, vertices: [9, 19, 32, 38, 47, 66, 84, 86]}
+      - {t:  17, robots:   5, vertices: [17, 32, 58, 66, 86]}
+      - {t:  18, robots:   2, vertices: [62, 66]}
+      - {t:  19, robots:   2, vertices: [66, 68]}
+      - {t:  20, robots:   3, vertices: [35, 66, 68]}
+      - {t:  21, robots:   4, vertices: [4, 35, 66, 68]}
+      - {t:  22, robots:   5, vertices: [4, 34, 35, 66, 68]}
+      - {t:  23, robots:   6, vertices: [4, 16, 34, 35, 66, 68]}
+      - {t:  24, robots:   7, vertices: [4, 16, 34, 35, 53, 66, 68]}
+      - {t:  25, robots:   9, vertices: [4, 5, 13, 16, 34, 35, 53, 66, 68]}
+      - {t:  26, robots:  10, vertices: [4, 5, 13, 16, 34, 35, 53, 60, 66, 68]}
+      - {t:  27, robots:  11, vertices: [4, 5, 13, 16, 34, 35, 53, 60, 66, 68, 82]}
+      - {t:  28, robots:  12, vertices: [4, 5, 13, 16, 34, 35, 53, 60, 61, 66, 68, 82]}
+      - {t:  29, robots:  12, vertices: [4, 5, 13, 16, 34, 35, 41, 53, 60, 61, 66, 68]}
+      - {t:  30, robots:  11, vertices: [4, 5, 13, 22, 34, 35, 53, 55, 66, 68, 80]}
+      - {t:  31, robots:  14, vertices: [4, 5, 13, 22, 34, 35, 51, 53, 55, 66, 68, 71, 80, 83]}
+      - {t:  32, robots:  12, vertices: [4, 7, 13, 29, 34, 35, 45, 51, 55, 66, 68, 71]}
+      - {t:  33, robots:  12, vertices: [7, 13, 23, 29, 34, 35, 45, 55, 66, 68, 71, 73]}
+      - {t:  34, robots:  13, vertices: [13, 29, 34, 35, 44, 45, 52, 55, 66, 68, 71, 73, 85]}
+      - {t:  35, robots:  13, vertices: [12, 13, 29, 35, 44, 45, 52, 55, 66, 68, 71, 73, 85]}
+      - {t:  36, robots:  13, vertices: [12, 13, 29, 35, 44, 45, 55, 66, 68, 70, 71, 73, 85]}
+      - {t:  37, robots:  10, vertices: [13, 35, 44, 55, 56, 66, 68, 71, 73, 85]}
+      - {t:  38, robots:   8, vertices: [35, 44, 55, 66, 67, 68, 71, 85]}
+      - {t:  39, robots:   9, vertices: [10, 35, 44, 55, 66, 67, 68, 71, 85]}
+      - {t:  40, robots:  10, vertices: [10, 35, 43, 44, 55, 66, 67, 68, 71, 85]}
+      - {t:  41, robots:  11, vertices: [10, 35, 43, 44, 55, 66, 67, 68, 71, 78, 85]}
+      - {t:  42, robots:  11, vertices: [10, 28, 35, 43, 44, 55, 66, 67, 68, 71, 85]}
+      - {t:  43, robots:  12, vertices: [10, 14, 21, 35, 43, 44, 55, 66, 67, 68, 71, 85]}
+      - {t:  44, robots:  14, vertices: [10, 14, 21, 35, 43, 44, 48, 55, 66, 67, 68, 71, 75, 85]}
+      - {t:  45, robots:  13, vertices: [10, 14, 21, 35, 44, 55, 65, 66, 67, 68, 71, 75, 85]}
+      - {t:  46, robots:  14, vertices: [10, 14, 21, 27, 35, 44, 55, 65, 66, 67, 68, 71, 75, 85]}
+      - {t:  47, robots:  15, vertices: [10, 14, 21, 27, 35, 44, 55, 65, 66, 67, 68, 71, 75, 81, 85]}
+      - {t:  48, robots:  15, vertices: [10, 14, 20, 21, 27, 35, 44, 55, 65, 66, 67, 68, 71, 75, 85]}
+      - {t:  49, robots:  15, vertices: [10, 14, 20, 21, 27, 35, 44, 55, 66, 67, 68, 71, 75, 85, 88]}
+      - {t:  50, robots:  16, vertices: [10, 14, 20, 21, 26, 27, 35, 44, 55, 66, 67, 68, 71, 75, 85, 88]}
+      - {t:  51, robots:  16, vertices: [10, 14, 20, 21, 26, 27, 35, 44, 55, 59, 66, 67, 68, 71, 75, 85]}
+      - {t:  52, robots:  16, vertices: [10, 14, 20, 21, 27, 35, 40, 44, 55, 59, 66, 67, 68, 71, 75, 85]}
+      - {t:  53, robots:  15, vertices: [10, 20, 21, 27, 30, 35, 44, 55, 59, 66, 67, 68, 71, 75, 85]}
+      - {t:  54, robots:  16, vertices: [10, 20, 21, 27, 30, 35, 39, 44, 55, 59, 66, 67, 68, 71, 75, 85]}
+      - {t:  55, robots:  15, vertices: [10, 21, 27, 30, 35, 44, 49, 55, 59, 66, 67, 68, 71, 75, 85]}
+      - {t:  56, robots:  15, vertices: [10, 21, 27, 30, 35, 44, 49, 55, 66, 67, 68, 71, 75, 77, 85]}
+      - {t:  57, robots:  15, vertices: [10, 21, 27, 30, 35, 44, 49, 55, 66, 67, 68, 71, 74, 75, 85]}
+      - {t:  58, robots:  12, vertices: [10, 21, 35, 44, 55, 57, 66, 67, 68, 71, 75, 85]}
+      - {t:  59, robots:  12, vertices: [10, 21, 24, 35, 44, 55, 66, 67, 68, 71, 75, 85]}
+      - {t:  60, robots:  12, vertices: [10, 21, 35, 44, 55, 63, 66, 67, 68, 71, 75, 85]}
+      - {t:  61, robots:  12, vertices: [10, 21, 35, 44, 55, 66, 67, 68, 71, 75, 79, 85]}
+      - {t:  62, robots:  12, vertices: [10, 21, 35, 37, 44, 55, 66, 67, 68, 71, 75, 85]}
+
+  - key: sweep
+    name: kolling/sweep
+    steps: 55
+    team_peak: 20
+    team_median: 12
+    cleared: False
+    cleared_except_uncoverable: True
+    residual_cells: 553
+    residual_m2: 22.12
+    recontamination_events: 0
+    recontaminated_cells: 0
+    makespan_s: 4973.8
+    order: sweep
+    steps_with_an_open_frontier: 0
+    frontier_cells_left_open: 0
+    steps_list:
+      # one line per step: the vertices held
+      - {t:   0, robots:   1, vertices: [16]}
+      - {t:   1, robots:   2, vertices: [4, 80]}
+      - {t:   2, robots:   3, vertices: [4, 70, 80]}
+      - {t:   3, robots:   4, vertices: [4, 52, 70, 80]}
+      - {t:   4, robots:   6, vertices: [4, 12, 29, 52, 70, 80]}
+      - {t:   5, robots:   7, vertices: [4, 12, 13, 29, 52, 80, 85]}
+      - {t:   6, robots:   9, vertices: [4, 7, 12, 13, 29, 44, 52, 80, 85]}
+      - {t:   7, robots:  10, vertices: [4, 7, 12, 13, 29, 44, 52, 56, 80, 85]}
+      - {t:   8, robots:  11, vertices: [4, 7, 12, 13, 29, 44, 52, 56, 67, 80, 85]}
+      - {t:   9, robots:  12, vertices: [4, 7, 12, 13, 29, 44, 51, 52, 56, 67, 80, 85]}
+      - {t:  10, robots:  13, vertices: [4, 7, 12, 13, 23, 29, 44, 51, 52, 56, 67, 80, 85]}
+      - {t:  11, robots:  17, vertices: [4, 7, 12, 13, 23, 29, 34, 44, 45, 51, 52, 56, 60, 67, 73, 80, 85]}
+      - {t:  12, robots:  13, vertices: [4, 5, 7, 13, 22, 34, 41, 44, 45, 51, 67, 71, 85]}
+      - {t:  13, robots:  16, vertices: [4, 5, 7, 22, 34, 41, 44, 51, 53, 55, 61, 67, 71, 82, 83, 85]}
+      - {t:  14, robots:   6, vertices: [44, 55, 66, 67, 71, 85]}
+      - {t:  15, robots:   7, vertices: [42, 44, 55, 66, 67, 71, 85]}
+      - {t:  16, robots:   8, vertices: [15, 42, 44, 55, 66, 67, 71, 85]}
+      - {t:  17, robots:  10, vertices: [0, 8, 42, 44, 55, 66, 67, 71, 72, 85]}
+      - {t:  18, robots:  11, vertices: [0, 1, 8, 44, 55, 64, 66, 67, 71, 72, 85]}
+      - {t:  19, robots:  12, vertices: [0, 1, 36, 44, 50, 55, 66, 67, 71, 72, 76, 85]}
+      - {t:  20, robots:  10, vertices: [0, 1, 25, 36, 44, 55, 66, 67, 71, 85]}
+      - {t:  21, robots:  12, vertices: [0, 1, 2, 3, 25, 36, 44, 55, 66, 67, 71, 85]}
+      - {t:  22, robots:  16, vertices: [0, 2, 3, 6, 11, 25, 36, 44, 54, 55, 66, 67, 71, 85, 87, 89]}
+      - {t:  23, robots:  11, vertices: [2, 6, 37, 44, 46, 55, 66, 67, 71, 85, 89]}
+      - {t:  24, robots:  10, vertices: [6, 38, 44, 46, 55, 66, 67, 71, 79, 85]}
+      - {t:  25, robots:  11, vertices: [6, 24, 38, 44, 46, 55, 66, 67, 71, 79, 85]}
+      - {t:  26, robots:  10, vertices: [6, 38, 44, 46, 55, 63, 66, 67, 71, 85]}
+      - {t:  27, robots:   8, vertices: [38, 44, 55, 66, 67, 69, 71, 85]}
+      - {t:  28, robots:   9, vertices: [38, 44, 55, 66, 67, 68, 69, 71, 85]}
+      - {t:  29, robots:  10, vertices: [33, 38, 44, 55, 66, 67, 68, 69, 71, 85]}
+      - {t:  30, robots:  11, vertices: [18, 35, 38, 44, 55, 66, 67, 68, 69, 71, 85]}
+      - {t:  31, robots:  11, vertices: [35, 38, 40, 44, 55, 66, 67, 68, 69, 71, 85]}
+      - {t:  32, robots:  12, vertices: [35, 38, 40, 44, 55, 58, 66, 67, 68, 69, 71, 85]}
+      - {t:  33, robots:  13, vertices: [26, 35, 38, 40, 44, 55, 58, 66, 67, 68, 69, 71, 85]}
+      - {t:  34, robots:  13, vertices: [26, 35, 38, 44, 55, 58, 59, 66, 67, 68, 69, 71, 85]}
+      - {t:  35, robots:  13, vertices: [26, 35, 38, 44, 47, 55, 58, 59, 66, 67, 68, 71, 85]}
+      - {t:  36, robots:  14, vertices: [26, 35, 38, 44, 47, 55, 58, 59, 66, 67, 68, 71, 85, 86]}
+      - {t:  37, robots:  15, vertices: [19, 26, 35, 38, 44, 47, 55, 58, 59, 66, 67, 68, 71, 85, 86]}
+      - {t:  38, robots:  16, vertices: [9, 17, 19, 26, 35, 44, 47, 55, 58, 59, 66, 67, 68, 71, 85, 86]}
+      - {t:  39, robots:  15, vertices: [9, 17, 19, 26, 35, 44, 47, 55, 59, 66, 67, 68, 71, 77, 85]}
+      - {t:  40, robots:  16, vertices: [9, 17, 19, 26, 35, 44, 47, 55, 59, 66, 67, 68, 71, 75, 77, 85]}
+      - {t:  41, robots:  19, vertices: [9, 17, 19, 26, 31, 32, 35, 44, 47, 55, 59, 66, 67, 68, 71, 75, 77, 84, 85]}
+      - {t:  42, robots:  15, vertices: [17, 26, 32, 35, 44, 49, 55, 59, 66, 67, 68, 71, 75, 77, 85]}
+      - {t:  43, robots:  17, vertices: [17, 26, 30, 32, 35, 43, 44, 49, 55, 59, 66, 67, 68, 71, 75, 77, 85]}
+      - {t:  44, robots:  17, vertices: [17, 30, 32, 35, 43, 44, 49, 55, 66, 67, 68, 71, 74, 75, 77, 85, 88]}
+      - {t:  45, robots:  15, vertices: [30, 35, 43, 44, 49, 55, 62, 66, 67, 68, 71, 74, 75, 85, 88]}
+      - {t:  46, robots:  15, vertices: [10, 30, 35, 43, 44, 49, 55, 66, 67, 68, 71, 74, 75, 85, 88]}
+      - {t:  47, robots:  16, vertices: [10, 14, 30, 35, 43, 44, 49, 55, 66, 67, 68, 71, 74, 75, 85, 88]}
+      - {t:  48, robots:  18, vertices: [10, 14, 20, 21, 30, 35, 43, 44, 49, 55, 66, 67, 68, 71, 74, 75, 85, 88]}
+      - {t:  49, robots:  20, vertices: [10, 20, 21, 30, 35, 39, 43, 44, 49, 55, 57, 65, 66, 67, 68, 71, 74, 75, 85, 88]}
+      - {t:  50, robots:  14, vertices: [10, 21, 28, 35, 43, 44, 55, 65, 66, 67, 68, 71, 75, 85]}
+      - {t:  51, robots:  13, vertices: [10, 21, 35, 44, 55, 65, 66, 67, 68, 71, 75, 78, 85]}
+      - {t:  52, robots:  13, vertices: [10, 21, 35, 44, 48, 55, 65, 66, 67, 68, 71, 75, 85]}
+      - {t:  53, robots:  13, vertices: [10, 21, 35, 44, 55, 65, 66, 67, 68, 71, 75, 81, 85]}
+      - {t:  54, robots:  12, vertices: [10, 21, 27, 35, 44, 55, 66, 67, 68, 71, 75, 85]}
+
+  - key: all
+    name: all vertices at once
+    steps: 1
+    team_peak: 90
+    team_median: 90
+    cleared: False
+    cleared_except_uncoverable: True
+    residual_cells: 553
+    residual_m2: 22.12
+    recontamination_events: 0
+    recontaminated_cells: 0
+    makespan_s: 120.2
+    steps_list:
+      # one line per step: the vertices held
+      - {t:   0, robots:  90, vertices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89]}

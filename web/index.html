@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<!--
+  The scene viewer. Open this file directly -- no server, no build step.
+
+  Each scene lives in one data/<scene>.js written by scripts/build_web.py and
+  is loaded on demand, so switching scenes fetches a few megabytes rather than
+  all of them at once.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Clearing scenes</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="view"></div>
+
+<aside id="panel">
+  <h1>Clearing scenes</h1>
+  <p class="sub">Terrestrial survey &rarr; walkable surface &rarr; visibility graph</p>
+
+  <label class="field">
+    <span>Scene</span>
+    <select id="scene"></select>
+  </label>
+
+  <div id="stats" class="stats"></div>
+
+  <fieldset>
+    <legend>Layers</legend>
+    <label><input type="checkbox" id="l-cloud" checked> Survey cloud</label>
+    <label><input type="checkbox" id="l-surface" checked> Walkable surface</label>
+    <label><input type="checkbox" id="l-edges" checked> Guard-region edges</label>
+    <label><input type="checkbox" id="l-shady" checked> &nbsp;&nbsp;&mdash; incl. shady</label>
+    <label><input type="checkbox" id="l-nodes" checked> Vertices</label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Detection set</legend>
+    <label class="field">
+      <span>Vertex</span>
+      <select id="vertex"></select>
+    </label>
+    <p class="hint">The surface a robot standing there sees. Click a vertex in
+      the view to pick it.</p>
+  </fieldset>
+
+  <fieldset id="playback">
+    <legend>Clearing schedule</legend>
+    <div id="sched-meta" class="hint"></div>
+    <label><input type="checkbox" id="show-sched"> Paint the schedule state</label>
+    <input type="range" id="step" min="0" max="0" value="0">
+    <div class="row">
+      <button id="play">Play</button>
+      <span id="step-label" class="hint"></span>
+    </div>
+    <p class="hint">
+      <span class="key k-clear"></span> cleared
+      <span class="key k-dirty"></span> contaminated
+      <span class="key k-seen"></span> watched now
+    </p>
+  </fieldset>
+
+  <p class="foot">
+    Drag to orbit &middot; right-drag to pan &middot; wheel to zoom &middot;
+    <kbd>R</kbd> to reset
+  </p>
+</aside>
+
+<div id="loading">loading&hellip;</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="data/index.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

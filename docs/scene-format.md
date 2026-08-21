@@ -1,0 +1,150 @@
+# The scenario format
+
+One scene is two files:
+
+```
+scenes/<scene>.yaml              the scenario -- readable, hand-editable
+scenes/geometry/<scene>.npz      the arrays it points at
+```
+
+The split is by size, not by importance. The YAML carries the graph and every
+number a reader needs to understand the instance; the npz carries the cell-level
+payload -- a detection set is ten thousand cell indices and a hundred of them do
+not belong in a file a person is meant to read.
+
+`clearing.scene.load(name)` returns both as one `Scene`.
+
+---
+
+## The YAML
+
+```yaml
+scene: christ-church
+title: Christ Church
+
+source:                    # where the geometry came from
+  dataset: Oxford Spires Dataset (Tao et al., IJRR 2025)
+  survey: terrestrial laser scan, merged cloud + individual E57 setups
+  pipeline: e1-clearing-graph, stages 2-6
+  occupancy: O-carved (unobserved space blocks)
+  graph_file: carved_huav20_R30_seed1
+
+robot:
+  kind: ground
+  sensor_height_m: 1.0     # the sensor sits this far above the surface
+  detection_range_m: 30.0
+  speed_m_s: 1.0
+
+target:                    # what has to be detected
+  height_m: 1.0
+  radius_m: 0.25
+  visibility: all 5 rays to the target cylinder must pass
+
+surface:
+  geometry_file: geometry/christ-church.npz
+  cell_size_m: 0.2
+  cells: 248972
+  area_m2: 9958.88
+  bbox_min: [-122.9, -147.12, -3.34]
+  bbox_max: [44.3, 59.48, 3.83]
+  max_step_m: 0.25         # two neighbouring cells may differ by this much
+  evader_edges: 964511     # 8-connected under that rule; recomputed, not stored
+  uncoverable_cells: 7310  # seen by no vertex, at any team size
+  uncoverable_area_m2: 292.4
+
+graph:
+  vertices: 90
+  edges: 448
+  edges_regular: 325
+  edges_shady: 123
+  vertices_list:
+    - {id:   0, xyz: [-18.3, -42.52, -0.33], detection_m2: 2607.2, boundary_cells: 1616}
+    ...
+  edges_list:
+    - {i:   0, j:   3, type: regular, guard_cells: 233, guard_m2: 9.32}
+    ...
+
+routes:
+  reachable_pairs: 4005
+  unreachable_pairs: 0
+  speed_m_s: 1.0
+  columns: [i, j, distance_m, time_s]
+  values:
+    - [  0,   1,    43.2,    43.2]
+    ...
+```
+
+### What the fields mean
+
+**A vertex** is a sampled sensor position on the walkable surface. `xyz` is
+where the sensor is -- `sensor_height_m` above the cell the robot stands on.
+`detection_m2` is the area of `D(v)`, the part of the surface a robot there can
+certify empty; `boundary_cells` is the size of its rim, the cells of `D(v)` with
+a walkable neighbour outside it.
+
+**An edge** `(i, j)` exists where a robot at `j` can watch part of the rim of
+`D(p_i)`: the guard region `G_ij = dD(p_i) ∩ D(p_j)` of Kolling et al. 2010.
+It is `shady` when its guard region is strictly contained in another vertex's
+and `regular` otherwise. Undirected edges take regular over shady.
+
+An edge is a *coverage* relation between a position and a piece of boundary, not
+adjacency between regions. That is worth keeping in mind when reading the graph:
+two vertices can be edge-joined across a courtyard they are nowhere near each
+other in.
+
+**A route** is the ground robot's shortest path over the walkable surface,
+8-connected with the same `max_step_m` rule, weighted by 3D step length so a
+ramp costs its slope rather than its plan projection. `time_s` is
+`distance_m / speed_m_s`. Pairs the robot cannot reach at all are omitted and
+counted in `unreachable_pairs`.
+
+Routes are lattice paths at `cell_size_m`, so they overestimate a smoothed path
+by a few per cent, and they ignore vehicle dynamics entirely.
+
+### What is NOT in the file, on purpose
+
+`evader_edges` is a count, not a list. The adjacency is recomputed from the
+cells and `max_step_m` by `clearing.scene.lattice_edges`, so the rule and the
+data cannot drift apart -- and it saves about 8 MB per scene.
+
+---
+
+## The npz
+
+| key | shape | what it is |
+|---|---|---|
+| `cell_xyz` | (n_cells, 3) f32 | walkable surface points, world coordinates |
+| `cell_ij` | (n_cells, 2) i32 | grid indices; two cells may share a column |
+| `cell_size` | scalar f32 | 0.2 m |
+| `node_xyz` | (n_nodes, 3) f32 | sensor positions |
+| `node_cell` | (n_nodes,) i32 | the cell each vertex stands on |
+| `detection_offsets` / `detection_cells` | CSR | `D(v)` per vertex, as cell indices |
+| `rim_offsets` / `rim_cells` | CSR | `dD(v)` per vertex |
+| `edge_ij` | (n_edges, 2) i32 | the guard-region graph |
+| `edge_shady` | (n_edges,) u8 | 1 = shady |
+| `guard_offsets` / `guard_cells` | CSR | `G_ij` per edge |
+| `travel_seconds` / `travel_metres` | (n, n) f32 | all pairs, `inf` where unreachable |
+| `travel_component` | (n_nodes,) i32 | vertices sharing one can reach each other |
+| `route_points` / `route_offsets` / `route_ij` | polylines | the drawn roadmap, for viewers |
+| `uncoverable` | (k,) i32 | cells no vertex sees |
+| `cloud_xyz` | (m, 3) f32 | the survey cloud, decimated, for context |
+
+CSR here means the usual pair: row `i` is `values[offsets[i]:offsets[i+1]]`.
+
+---
+
+## Making your own scene
+
+Nothing in `clearing/` knows where the geometry came from. To add a scene,
+write the two files. The checks in `tests/test_scene.py` are the contract:
+every count in the YAML has to match the arrays, guard regions have to lie
+inside the detection set of one of their endpoints, and travel times have to be
+distance over speed.
+
+To regenerate the six shipped scenes from the upstream pipeline:
+
+```bash
+python scripts/export_from_e1.py --e1-root ~/e1-clearing-graph --R 30 --seed 1
+```
+
+That is the only script that needs the survey clouds and the raycaster.

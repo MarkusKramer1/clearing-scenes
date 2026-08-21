@@ -1,0 +1,114 @@
+# HB Allen Centre -- clearing examples
+#
+# Produced by scripts/run_clearing.py and checked cell by cell with
+# clearing.verify.propagate. Every step lists the vertices a robot
+# stands on; a robot sees D(v) from there and the evader may be
+# anywhere it is not seen.
+
+scene: hb-allen-centre
+scenario_file: ../scenes/hb-allen-centre.yaml
+
+graph_clear_label:
+  # Kolling & Carpin's tree recursion on a maximum spanning forest of
+  # the guard graph, one robot per swept vertex and per blocked edge.
+  # An upper bound in a model that charges every edge separately; the
+  # schedules below cover the frontier with a set cover over vertices
+  # instead, and need fewer.
+  robots: 15
+  root_vertex: 0
+  tree_edges: 20
+  non_tree_edges: 74
+  forest_components: 1
+
+tolerance:
+  # Cells no vertex sees. Small connected fragments of it are taken
+  # out of the evader space (see clearing.scene.Scene.excluded); the
+  # rest stays in and shows up as residual.
+  uncoverable_m2: 61.8
+  excluded_as_specks_m2: 57.6
+  speck_max_area_m2: 4
+
+runs:
+  - key: kolling
+    name: kolling/kolling
+    steps: 15
+    team_peak: 10
+    team_median: 6
+    cleared: False
+    cleared_except_uncoverable: True
+    residual_cells: 105
+    residual_m2: 4.2
+    recontamination_events: 0
+    recontaminated_cells: 0
+    makespan_s: 429.1
+    order: kolling
+    steps_with_an_open_frontier: 0
+    frontier_cells_left_open: 0
+    steps_list:
+      # one line per step: the vertices held
+      - {t:   0, robots:   1, vertices: [0]}
+      - {t:   1, robots:   2, vertices: [0, 9]}
+      - {t:   2, robots:   3, vertices: [0, 9, 13]}
+      - {t:   3, robots:   5, vertices: [0, 5, 9, 13, 17]}
+      - {t:   4, robots:   6, vertices: [0, 2, 5, 9, 13, 17]}
+      - {t:   5, robots:   6, vertices: [0, 5, 9, 13, 17, 18]}
+      - {t:   6, robots:   6, vertices: [0, 5, 9, 11, 13, 17]}
+      - {t:   7, robots:   7, vertices: [0, 5, 7, 9, 10, 11, 17]}
+      - {t:   8, robots:   8, vertices: [0, 5, 7, 10, 11, 15, 17, 19]}
+      - {t:   9, robots:   5, vertices: [0, 4, 7, 11, 15]}
+      - {t:  10, robots:   6, vertices: [0, 4, 7, 11, 15, 20]}
+      - {t:  11, robots:   7, vertices: [0, 1, 4, 6, 7, 11, 20]}
+      - {t:  12, robots:  10, vertices: [0, 1, 4, 6, 7, 8, 11, 12, 14, 20]}
+      - {t:  13, robots:   6, vertices: [0, 3, 4, 7, 14, 20]}
+      - {t:  14, robots:   6, vertices: [0, 4, 7, 14, 16, 20]}
+
+  - key: sweep
+    name: kolling/sweep
+    steps: 17
+    team_peak: 10
+    team_median: 7
+    cleared: False
+    cleared_except_uncoverable: True
+    residual_cells: 105
+    residual_m2: 4.2
+    recontamination_events: 0
+    recontaminated_cells: 0
+    makespan_s: 412.6
+    order: sweep
+    steps_with_an_open_frontier: 0
+    frontier_cells_left_open: 0
+    steps_list:
+      # one line per step: the vertices held
+      - {t:   0, robots:   1, vertices: [20]}
+      - {t:   1, robots:   2, vertices: [4, 20]}
+      - {t:   2, robots:   4, vertices: [0, 4, 14, 20]}
+      - {t:   3, robots:   5, vertices: [0, 4, 7, 14, 20]}
+      - {t:   4, robots:   6, vertices: [0, 4, 7, 14, 15, 20]}
+      - {t:   5, robots:   7, vertices: [0, 4, 7, 8, 14, 15, 20]}
+      - {t:   6, robots:   8, vertices: [0, 1, 4, 6, 7, 8, 14, 20]}
+      - {t:   7, robots:   9, vertices: [0, 1, 4, 6, 7, 9, 12, 14, 20]}
+      - {t:   8, robots:   8, vertices: [0, 1, 4, 7, 9, 13, 14, 20]}
+      - {t:   9, robots:   8, vertices: [0, 1, 4, 5, 7, 13, 14, 20]}
+      - {t:  10, robots:   8, vertices: [0, 1, 4, 7, 13, 14, 19, 20]}
+      - {t:  11, robots:  10, vertices: [0, 1, 4, 7, 10, 13, 14, 17, 19, 20]}
+      - {t:  12, robots:   8, vertices: [0, 1, 4, 7, 11, 14, 17, 20]}
+      - {t:  13, robots:   7, vertices: [0, 3, 4, 7, 14, 17, 20]}
+      - {t:  14, robots:   7, vertices: [0, 4, 7, 14, 16, 17, 20]}
+      - {t:  15, robots:   7, vertices: [0, 2, 4, 7, 14, 17, 20]}
+      - {t:  16, robots:   6, vertices: [0, 4, 7, 14, 18, 20]}
+
+  - key: all
+    name: all vertices at once
+    steps: 1
+    team_peak: 21
+    team_median: 21
+    cleared: False
+    cleared_except_uncoverable: True
+    residual_cells: 105
+    residual_m2: 4.2
+    recontamination_events: 0
+    recontaminated_cells: 0
+    makespan_s: 70.6
+    steps_list:
+      # one line per step: the vertices held
+      - {t:   0, robots:  21, vertices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]}

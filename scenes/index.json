@@ -1,0 +1,69 @@
+{
+  "config": {
+    "variant": "carved",
+    "R": 30.0,
+    "seed": 1
+  },
+  "scenes": [
+    {
+      "scene": "blenheim-palace",
+      "title": "Blenheim Palace",
+      "cells": 292730,
+      "area_m2": 11709.2,
+      "vertices": 45,
+      "edges": 221,
+      "cloud_points": 253055,
+      "uncoverable_m2": 115.2
+    },
+    {
+      "scene": "bodleian-library",
+      "title": "Bodleian Library",
+      "cells": 323972,
+      "area_m2": 12958.9,
+      "vertices": 134,
+      "edges": 922,
+      "cloud_points": 252251,
+      "uncoverable_m2": 498.5
+    },
+    {
+      "scene": "christ-church",
+      "title": "Christ Church",
+      "cells": 248972,
+      "area_m2": 9958.9,
+      "vertices": 90,
+      "edges": 448,
+      "cloud_points": 255574,
+      "uncoverable_m2": 292.4
+    },
+    {
+      "scene": "hb-allen-centre",
+      "title": "HB Allen Centre",
+      "cells": 32306,
+      "area_m2": 1292.2,
+      "vertices": 21,
+      "edges": 94,
+      "cloud_points": 253292,
+      "uncoverable_m2": 61.8
+    },
+    {
+      "scene": "keble-college",
+      "title": "Keble College",
+      "cells": 159132,
+      "area_m2": 6365.3,
+      "vertices": 25,
+      "edges": 96,
+      "cloud_points": 252789,
+      "uncoverable_m2": 80.0
+    },
+    {
+      "scene": "observatory-quarter",
+      "title": "Observatory Quarter",
+      "cells": 87626,
+      "area_m2": 3505.0,
+      "vertices": 47,
+      "edges": 209,
+      "cloud_points": 253668,
+      "uncoverable_m2": 174.9
+    }
+  ]
+}
