@@ -74,6 +74,7 @@ def pack(name: str, cloud_stride: int, surface_stride: int,
             "vertices": s.n_nodes,
             "edges": int(s.edge_ij.shape[0]),
             "edgesShady": int(s.edge_shady.sum()),
+            "routePoints": int(sum(len(r) for r in s.routes)),
             "range": s.doc["robot"]["detection_range_m"],
             "uncoverableM2": round(s.area(s.uncoverable), 1),
         },
@@ -84,6 +85,20 @@ def pack(name: str, cloud_stride: int, surface_stride: int,
         "nodes": b64((s.node_xyz - centre).astype(np.float32).ravel()),
         "edges": b64(s.edge_ij.astype(np.uint16).ravel()),
         "edgeShady": b64(s.edge_shady.astype(np.uint8)),
+    }
+
+    # the path the robot walks along each edge -- one polyline per edge, packed
+    # end to end with an offset table, the same shape as the CSR arrays above
+    off = np.zeros(len(s.routes) + 1, dtype=np.uint32)
+    off[1:] = np.cumsum([len(r) for r in s.routes])
+    pts = np.concatenate([r for r in s.routes if len(r)]) if s.routes else None
+    out["routes"] = {
+        **quantise(pts, centre),
+        "offsets": b64(off),
+        "seconds": b64(np.array([s.travel_seconds[i, j]
+                                 for i, j in s.edge_ij], np.float32)),
+        "metres": b64(np.array([s.travel_metres[i, j]
+                                for i, j in s.edge_ij], np.float32)),
     }
 
     # the detection sets, as run lengths over the drawn surface points -- what

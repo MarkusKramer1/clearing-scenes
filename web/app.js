@@ -66,6 +66,16 @@ const CLEARED = [0.14, 0.58, 0.64];
 const DIRTY = [0.36, 0.18, 0.27];
 const WATCHED = [0.98, 0.69, 0.29];
 const SEEN_BY = [0.98, 0.55, 0.22];
+// Violet and pink, not green: the surface is teal and the graph edges are
+// amber, and a route has to be told apart from both at a glance.
+const ROUTE = 0x9d7bff;      // every route, drawn faintly
+const ROUTE_HOT = 0xff5fbf;  // the selected one
+// Routes are lifted clear of the surface. The walkable cells are drawn as
+// sprites nearly two cells wide, so a polyline sitting on the surface is
+// hidden by the very floor it runs over; the selected one is lifted further
+// again so it reads over the rest.
+const ROUTE_LIFT = 0.45;
+const ROUTE_LIFT_SEL = 0.75;
 
 /* ------------------------------------------------------------------- scene */
 
@@ -93,9 +103,11 @@ function init() {
   }
   sel.onchange = () => loadScene(sel.value);
 
-  for (const id of ["cloud", "surface", "edges", "shady", "nodes"]) {
+  for (const id of ["cloud", "surface", "edges", "shady", "nodes", "routes"]) {
     $("#l-" + id).onchange = applyLayers;
   }
+  $("#route-from").onchange = () => { fillRouteTo(); drawRoute(); };
+  $("#route-to").onchange = drawRoute;
   $("#vertex").onchange = () => { $("#show-sched").checked = false; paint(); };
   $("#step").oninput = () => { $("#vertex").value = "-1";
                                $("#show-sched").checked = true; paint(); };
@@ -187,6 +199,15 @@ function build(data) {
   S.nodeDraw = np;
   G.nodes = points(np, null, 2.4, 0xffeca8);
 
+  // the walked routes, one polyline per edge
+  S.routePts = dequantise(data.routes);
+  S.routeOff = decode(data.routes.offsets, Uint32Array);
+  S.routeSecs = decode(data.routes.seconds, Float32Array);
+  S.routeMetres = decode(data.routes.metres, Float32Array);
+  G.routes = segments(routeSegments(S), ROUTE, 0.7);
+  G.routeSel = segments(new Float32Array(0), ROUTE_HOT, 1.0);
+  G.routeDots = points(new Float32Array(0), null, 1.6, ROUTE_HOT);
+
   G.held = points(new Float32Array(0), null, 4.2, 0xff6a3d);
 
   for (const k of Object.keys(G)) world.add(G[k]);
@@ -199,6 +220,13 @@ function build(data) {
   const want = hashState();
   if (want.vertex !== null) $("#vertex").value = want.vertex;
   if (want.step !== null) { $("#step").value = want.step; $("#show-sched").checked = true; }
+  if (want.from !== null) {
+    $("#route-from").value = want.from;
+    fillRouteTo();
+    if (want.to !== null) $("#route-to").value = want.to;
+    $("#l-routes").checked = true;
+    drawRoute();
+  }
   paint();
   frame();
 }
@@ -207,7 +235,56 @@ function build(data) {
 function hashState() {
   const q = new URLSearchParams(location.hash.replace(/^#/, ""));
   const num = (k) => (q.has(k) ? parseInt(q.get(k), 10) : null);
-  return { scene: q.get("scene"), vertex: num("vertex"), step: num("step") };
+  return { scene: q.get("scene"), vertex: num("vertex"), step: num("step"),
+           from: num("from"), to: num("to") };
+}
+
+/** Every edge index, as the default "all routes" selection. */
+function allEdges(sc) {
+  return Array.from({ length: sc.routeOff.length - 1 }, (_, k) => k);
+}
+
+/** The given edges' polylines, flattened into consecutive segment endpoints. */
+function routeSegments(sc, which, lift) {
+  const keep = which || allEdges(sc);
+  const dz = lift === undefined ? ROUTE_LIFT : lift;
+  const out = [];
+  for (const k of keep) {
+    const a = sc.routeOff[k], b = sc.routeOff[k + 1];
+    for (let i = a; i + 1 < b; i++) {
+      out.push(sc.routePts[3 * i], sc.routePts[3 * i + 1], sc.routePts[3 * i + 2] + dz,
+               sc.routePts[3 * i + 3], sc.routePts[3 * i + 4], sc.routePts[3 * i + 5] + dz);
+    }
+  }
+  return new Float32Array(out);
+}
+
+/** The same polylines, resampled at a fixed spacing, as drawable points. */
+function routeBeads(sc, which, spacing, lift) {
+  const out = [];
+  for (const k of which || []) {
+    const a = sc.routeOff[k], b = sc.routeOff[k + 1];
+    let carry = 0;
+    for (let i = a; i + 1 < b; i++) {
+      const p = [sc.routePts[3 * i], sc.routePts[3 * i + 1], sc.routePts[3 * i + 2]];
+      const q = [sc.routePts[3 * i + 3], sc.routePts[3 * i + 4], sc.routePts[3 * i + 5]];
+      const d = Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]);
+      for (let t = carry; t < d; t += spacing) {
+        const f = t / Math.max(d, 1e-9);
+        out.push(p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f,
+                 p[2] + (q[2] - p[2]) * f + lift);
+      }
+      carry = d > 0 ? (spacing - ((d - carry) % spacing)) % spacing : carry;
+    }
+  }
+  return new Float32Array(out);
+}
+
+function segments(xyz, colour, opacity) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(xyz, 3));
+  return new THREE.LineSegments(g, new THREE.LineBasicMaterial({
+    color: colour, transparent: true, opacity }));
 }
 
 function points(xyz, colours, size, colour) {
@@ -306,6 +383,17 @@ function fillPanel() {
     sel.appendChild(o);
   }
 
+  const from = $("#route-from");
+  from.innerHTML = '<option value="-1">— none —</option>';
+  for (let v = 0; v < S.stats.vertices; v++) {
+    const o = document.createElement("option");
+    o.value = v;
+    o.textContent = `vertex ${v}`;
+    from.appendChild(o);
+  }
+  fillRouteTo();
+  drawRoute();
+
   const pb = $("#playback");
   if (!S.schedule) { pb.style.display = "none"; return; }
   pb.style.display = "";
@@ -317,12 +405,92 @@ function fillPanel() {
   $("#step").value = 0;
 }
 
+/** Which edges leave the chosen vertex, cheapest first. */
+function edgesFrom(v) {
+  const out = [];
+  for (let k = 0; k < S.edges.length / 2; k++) {
+    const i = S.edges[2 * k], j = S.edges[2 * k + 1];
+    if (i === v || j === v) out.push({ k, other: i === v ? j : i });
+  }
+  out.sort((a, b) => S.routeSecs[a.k] - S.routeSecs[b.k]);
+  return out;
+}
+
+function fillRouteTo() {
+  const v = parseInt($("#route-from").value, 10);
+  const to = $("#route-to");
+  to.innerHTML = "";
+  if (v < 0) {
+    to.innerHTML = '<option value="-1">—</option>';
+    return;
+  }
+  const all = document.createElement("option");
+  all.value = "-1";
+  all.textContent = "— every route from here —";
+  to.appendChild(all);
+  for (const { k, other } of edgesFrom(v)) {
+    const o = document.createElement("option");
+    o.value = other;                       // a vertex id, so #from=12&to=61 works
+    o.textContent = `vertex ${other}  —  ${S.routeMetres[k].toFixed(0)} m, `
+      + fmtTime(S.routeSecs[k]);
+    to.appendChild(o);
+  }
+}
+
+function fmtTime(s) {
+  return s < 90 ? `${s.toFixed(0)} s` : `${(s / 60).toFixed(1)} min`;
+}
+
+function drawRoute() {
+  const v = parseInt($("#route-from").value, 10);
+  const w = parseInt($("#route-to").value, 10);
+  const hit = v >= 0 ? edgesFrom(v).find((e) => e.other === w) : null;
+  let which = [];
+  let text = "";
+
+  if (hit) {
+    const k = hit.k;
+    which = [k];
+    const i = v, j = w;
+    const straight = Math.hypot(
+      S.nodes[3 * i] - S.nodes[3 * j],
+      S.nodes[3 * i + 1] - S.nodes[3 * j + 1],
+      S.nodes[3 * i + 2] - S.nodes[3 * j + 2]);
+    const detour = S.routeMetres[k] / Math.max(straight, 1e-6);
+    text = `${i} → ${j}: walks ${S.routeMetres[k].toFixed(1)} m in `
+      + `${fmtTime(S.routeSecs[k])} — ${detour.toFixed(2)}× the straight line `
+      + `of ${straight.toFixed(1)} m.`;
+  } else if (v >= 0) {
+    const es = edgesFrom(v);
+    which = es.map((e) => e.k);
+    const secs = es.map((e) => S.routeSecs[e.k]);
+    text = es.length
+      ? `${es.length} routes from vertex ${v}: `
+        + `${fmtTime(Math.min(...secs))} to ${fmtTime(Math.max(...secs))}.`
+      : `vertex ${v} has no graph edges.`;
+  }
+
+  $("#route-meta").textContent = text;
+  G.routeSel.geometry.setAttribute("position",
+    new THREE.Float32BufferAttribute(
+      routeSegments(S, which, ROUTE_LIFT_SEL), 3));
+  G.routeSel.geometry.attributes.position.needsUpdate = true;
+
+  // A one-pixel line disappears over a dense surface once the whole site is in
+  // frame. Beads along the path do not: they scale with the view.
+  G.routeDots.geometry.setAttribute("position",
+    new THREE.Float32BufferAttribute(
+      routeBeads(S, which, 1.5, ROUTE_LIFT_SEL), 3));
+  G.routeDots.geometry.attributes.position.needsUpdate = true;
+}
+
 function applyLayers() {
   G.cloud.visible = $("#l-cloud").checked;
   G.surface.visible = $("#l-surface").checked;
   G.regular.visible = $("#l-edges").checked;
   G.shady.visible = $("#l-edges").checked && $("#l-shady").checked;
   G.nodes.visible = $("#l-nodes").checked;
+  G.routes.visible = $("#l-routes").checked;
 }
 
 function togglePlay() {

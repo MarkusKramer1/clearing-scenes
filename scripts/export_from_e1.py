@@ -85,6 +85,107 @@ def evader_edges(cells, height, d_v, h_climb, lattice_edges):
     return a.astype(np.int32), b.astype(np.int32)
 
 
+def simplify(pts: np.ndarray, eps: float) -> np.ndarray:
+    """Ramer-Douglas-Peucker, iteratively. Returns the indices to keep.
+
+    A lattice path is mostly long straight runs with a corner every so often,
+    so this takes a 500-point walk down to a couple of dozen points. At an
+    epsilon below the cell size it is visually lossless, and the lengths quoted
+    in the YAML come from the FULL path, never from the simplified one.
+    """
+    n = len(pts)
+    if n < 3:
+        return np.arange(n)
+    keep = np.zeros(n, dtype=bool)
+    keep[0] = keep[-1] = True
+    stack = [(0, n - 1)]
+    while stack:
+        i, j = stack.pop()
+        if j <= i + 1:
+            continue
+        seg = pts[j] - pts[i]
+        length = float(np.linalg.norm(seg))
+        rel = pts[i + 1:j] - pts[i]
+        if length < 1e-9:
+            d = np.linalg.norm(rel, axis=1)
+        else:
+            u = seg / length
+            d = np.linalg.norm(rel - np.outer(rel @ u, u), axis=1)
+        m = int(np.argmax(d))
+        if d[m] > eps:
+            k = i + 1 + m
+            keep[k] = True
+            stack.append((i, k))
+            stack.append((k, j))
+    return np.flatnonzero(keep)
+
+
+def edge_routes(cells, height, d_v, h_climb, xyz, node_cell, edge_ij,
+                travel_metres, lattice_edges, eps=0.12, chunk=16):
+    """The path the robot actually walks along every edge of the graph.
+
+    This is the point of the layer: an edge of the visibility graph is a
+    statement about what two positions can see, and the ground between them may
+    be a wall. Drawing the edge as a straight segment says the opposite of what
+    the travel time means. So each edge gets its true shortest path over the
+    walkable lattice -- the same lattice, the same step rule -- reconstructed
+    from a Dijkstra predecessor tree and then simplified for drawing.
+
+    The reconstructed length is checked against the travel matrix E1 wrote. A
+    mismatch would mean this lattice and E1's have drifted apart, and it fails
+    loudly rather than shipping routes that disagree with their own times.
+    """
+    from scipy import sparse
+    from scipy.sparse.csgraph import dijkstra
+
+    a, b, w = lattice_edges(cells[:, 0].astype(np.int64),
+                            cells[:, 1].astype(np.int64),
+                            np.asarray(height, dtype=np.float64),
+                            float(d_v), float(h_climb))
+    n = cells.shape[0]
+    g = sparse.coo_matrix((w, (a, b)), shape=(n, n)).tocsr()
+    g = g + g.T
+
+    by_src: dict[int, list[int]] = {}
+    for k, (i, _j) in enumerate(edge_ij):
+        by_src.setdefault(int(i), []).append(k)
+
+    routes: list[np.ndarray] = [np.zeros((0, 3), np.float32)] * edge_ij.shape[0]
+    worst = 0.0
+    srcs = sorted(by_src)
+    for c0 in range(0, len(srcs), chunk):
+        block = srcs[c0:c0 + chunk]
+        _, pred = dijkstra(g, indices=node_cell[block], directed=False,
+                           return_predecessors=True)
+        for row, src in enumerate(block):
+            p = pred[row]
+            for k in by_src[src]:
+                j = int(edge_ij[k, 1])
+                path, q = [int(node_cell[j])], int(node_cell[j])
+                while q != int(node_cell[src]):
+                    q = int(p[q])
+                    if q < 0:
+                        path = []
+                        break
+                    path.append(q)
+                if not path:
+                    continue
+                pts = xyz[path[::-1]].astype(np.float64)
+                walked = float(np.linalg.norm(np.diff(pts, axis=0), axis=1).sum())
+                worst = max(worst, abs(walked - float(travel_metres[src, j])))
+                routes[k] = pts[simplify(pts, eps)].astype(np.float32)
+
+    if worst > 0.05:
+        raise ValueError(f"route lengths disagree with the travel matrix by up "
+                         f"to {worst:.3f} m; the lattices have drifted apart")
+
+    off = np.zeros(len(routes) + 1, dtype=np.int64)
+    off[1:] = np.cumsum([len(r) for r in routes])
+    pts = (np.concatenate(routes) if len(routes)
+           else np.zeros((0, 3), np.float32))
+    return off, pts.astype(np.float32), worst
+
+
 def slices(offsets, values, keep):
     """Re-pack a CSR-style (offsets, values) pair, keeping rows `keep`."""
     out = [values[offsets[i]:offsets[i + 1]] for i in keep]
@@ -114,7 +215,8 @@ def write_yaml(path: Path, scene: dict) -> None:
     add("# Vertices are sampled sensor positions on the walkable surface. An edge")
     add("# (i, j) exists where a robot at j can watch part of the rim of what a")
     add("# robot at i sees -- the guard region of Kolling et al. 2010. `routes`")
-    add("# gives the ground robot's travel time between every pair of vertices.")
+    add("# gives the ground robot's travel time between every pair of vertices;")
+    add("# the path it actually walks along each edge is in the npz beside it.")
     add("#")
     add("# Regenerate with scripts/export_from_e1.py; see docs/scene-format.md.")
     add("")
@@ -184,6 +286,8 @@ def write_yaml(path: Path, scene: dict) -> None:
     add(f"  reachable_pairs: {len(r['values'])}")
     add(f"  unreachable_pairs: {r['unreachable_pairs']}")
     add(f"  speed_m_s: {fmt(r['speed_m_s'])}")
+    add(f"  polylines_for_graph_edges: {r['polylines']}   "
+        "# the walked path per edge, in the npz")
     add("  columns: [i, j, distance_m, time_s]")
     add("  values:")
     for i, j, d, t in r["values"]:
@@ -257,6 +361,8 @@ def export_scene(name: str, e1_root: Path, data_root: Path, out: Path,
     comp = t["ugv_component"].astype(np.int32)
 
     ea, eb = evader_edges(cells, height, d_v, h_climb, lattice_edges)
+    route_off, route_pts, route_err = edge_routes(
+        cells, height, d_v, h_climb, xyz, node_row, edge_ij, met, lattice_edges)
 
     cloud = np.load(e1_root / "outputs" / "scenes" / name
                     / "cloud_decimated.npy", mmap_mode="r")
@@ -273,9 +379,7 @@ def export_scene(name: str, e1_root: Path, data_root: Path, out: Path,
         edge_ij=edge_ij, edge_shady=edge_kind.astype(np.uint8),
         guard_offsets=guard_off, guard_cells=guard_cells,
         travel_seconds=sec, travel_metres=met, travel_component=comp,
-        route_points=t["ugv_path_pts"].astype(np.float32),
-        route_offsets=t["ugv_path_off"].astype(np.int64),
-        route_ij=remap[t["ugv_path_ab"]].astype(np.int32),
+        edge_route_offsets=route_off, edge_route_points=route_pts,
         uncoverable=uncoverable,
         cloud_xyz=cloud,
     )
@@ -340,6 +444,8 @@ def export_scene(name: str, e1_root: Path, data_root: Path, out: Path,
             "values": pairs,
             "unreachable_pairs": int(len(iu[0]) - len(pairs)),
             "speed_m_s": params["v_ugv"],
+            "polylines": int(sum(1 for k in range(edge_ij.shape[0])
+                                 if route_off[k + 1] > route_off[k])),
         },
     }
     write_yaml(out / "scenes" / f"{name}.yaml", doc)
@@ -348,6 +454,8 @@ def export_scene(name: str, e1_root: Path, data_root: Path, out: Path,
         "cells": n_cells, "area_m2": round(n_cells * cell_area, 1),
         "vertices": int(ground.size), "edges": int(edge_ij.shape[0]),
         "cloud_points": int(cloud.shape[0]),
+        "route_points": int(route_pts.shape[0]),
+        "route_length_error_m": round(route_err, 4),
         "uncoverable_m2": round(uncoverable.size * cell_area, 1),
     }
 
@@ -374,7 +482,8 @@ def main() -> None:
                             a.h_uav, a.R, a.seed, a.cloud_points, lattice_edges)
         index.append(info)
         print(f"         {info['vertices']} vertices, {info['edges']} edges, "
-              f"{info['area_m2']:,.0f} m2", flush=True)
+              f"{info['area_m2']:,.0f} m2; {info['route_points']:,} route points "
+              f"(length error <= {info['route_length_error_m']} m)", flush=True)
 
     (a.out / "scenes" / "index.json").write_text(
         json.dumps({"config": {"variant": a.variant, "R": a.R, "seed": a.seed},

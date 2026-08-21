@@ -63,6 +63,45 @@ def test_travel_times_are_distance_over_speed(name):
         assert T[i, j] == pytest.approx(secs, abs=0.06)
 
 
+@pytest.mark.parametrize("name", NAMES)
+def test_every_edge_carries_the_path_the_robot_walks(name):
+    """The polyline runs from one vertex's cell to the other's, on the surface.
+
+    Its measured length is shorter than the travel matrix by up to the
+    simplification tolerance and never longer: Ramer-Douglas-Peucker only ever
+    cuts corners off a lattice walk.
+    """
+    s = scene_mod.load(name)
+    assert len(s.routes) == s.edge_ij.shape[0]
+    assert s.doc["routes"]["polylines_for_graph_edges"] == \
+        sum(1 for r in s.routes if len(r))
+
+    ends = s.cell_xyz[s.node_cell]
+    for k in range(min(60, s.edge_ij.shape[0])):
+        i, j = (int(v) for v in s.edge_ij[k])
+        r = s.routes[k]
+        assert len(r) >= 2
+        assert np.allclose(r[0], ends[i], atol=1e-3)
+        assert np.allclose(r[-1], ends[j], atol=1e-3)
+
+        walked = float(np.linalg.norm(np.diff(r, axis=0), axis=1).sum())
+        true = float(s.travel_metres[i, j])
+        assert walked <= true + 1e-3
+        assert walked >= 0.9 * true
+
+    # ... and it is at least as long as flying there in a straight line
+    straight = np.linalg.norm(ends[s.edge_ij[:, 0]] - ends[s.edge_ij[:, 1]], axis=1)
+    walked = np.array([s.travel_metres[i, j] for i, j in s.edge_ij])
+    assert (walked >= straight - 1e-3).all()
+
+
+def test_route_lookup_is_symmetric():
+    s = scene_mod.load(SMALL)
+    i, j = (int(v) for v in s.edge_ij[3])
+    assert np.array_equal(s.route(i, j), s.route(j, i))
+    assert s.route(0, 0).shape == (0, 3)
+
+
 def test_lattice_respects_the_step_threshold():
     """Two cells in the same column, a metre apart, are not neighbours."""
     ij = np.array([[0, 0], [0, 1], [1, 0], [1, 1]], dtype=np.int32)

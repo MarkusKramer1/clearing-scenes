@@ -106,8 +106,12 @@ class Scene:
     travel_metres: np.ndarray
     uncoverable: np.ndarray         # cells no vertex sees, at any team size
 
+    #: per guard-graph edge, the path the robot walks between its two
+    #: vertices: the true shortest route over the walkable surface, simplified
+    #: for drawing. Empty where the two vertices cannot reach each other.
+    routes: list[np.ndarray] = field(repr=False, default_factory=list)
+
     cloud_xyz: np.ndarray = field(repr=False, default=None)
-    routes: dict = field(repr=False, default_factory=dict)
 
     #: connected uncoverable fragments below this area are taken out of the
     #: evader space entirely. 0 keeps every cell. See `excluded`.
@@ -205,6 +209,20 @@ class Scene:
             out[self.detection[int(v)]] = True
         return out
 
+    def route(self, i: int, j: int) -> np.ndarray:
+        """The walked path between two vertices, or an empty array.
+
+        Only guard-graph edges carry one -- those are the pairs the viewer and
+        the schedules ask about. `travel_metres` and `travel_seconds` cover
+        every pair; the polylines cover the edges.
+        """
+        i, j = int(i), int(j)
+        hit = np.flatnonzero(((self.edge_ij[:, 0] == i) & (self.edge_ij[:, 1] == j))
+                             | ((self.edge_ij[:, 0] == j) & (self.edge_ij[:, 1] == i)))
+        if hit.size == 0:
+            return np.zeros((0, 3), np.float32)
+        return self.routes[int(hit[0])]
+
     def neighbours(self, v: int) -> np.ndarray:
         """Vertices sharing a guard-region edge with `v`."""
         m = self.edge_ij[:, 0] == v
@@ -227,6 +245,9 @@ def load(name: str, scenes_dir: Path | str = SCENES_DIR,
         off, val = z[f"{prefix}_offsets"], z[f"{prefix}_cells"]
         return [val[off[i]:off[i + 1]] for i in range(off.size - 1)]
 
+    roff, rpts = z["edge_route_offsets"], z["edge_route_points"]
+    routes = [rpts[roff[k]:roff[k + 1]] for k in range(roff.size - 1)]
+
     return Scene(
         name=doc["scene"], title=doc["title"], doc=doc,
         cell_xyz=z["cell_xyz"], cell_ij=z["cell_ij"],
@@ -236,11 +257,9 @@ def load(name: str, scenes_dir: Path | str = SCENES_DIR,
         edge_ij=z["edge_ij"], edge_shady=z["edge_shady"].astype(bool),
         guard=csr("guard"),
         travel_seconds=z["travel_seconds"], travel_metres=z["travel_metres"],
-        uncoverable=z["uncoverable"],
+        uncoverable=z["uncoverable"], routes=routes,
         cloud_xyz=z["cloud_xyz"] if with_cloud else None,
         speck_max_area_m2=float(speck_max_area_m2),
-        routes={"points": z["route_points"], "offsets": z["route_offsets"],
-                "ij": z["route_ij"]},
     )
 
 

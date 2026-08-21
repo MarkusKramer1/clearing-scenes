@@ -3,7 +3,8 @@
 # Vertices are sampled sensor positions on the walkable surface. An edge
 # (i, j) exists where a robot at j can watch part of the rim of what a
 # robot at i sees -- the guard region of Kolling et al. 2010. `routes`
-# gives the ground robot's travel time between every pair of vertices.
+# gives the ground robot's travel time between every pair of vertices;
+# the path it actually walks along each edge is in the npz beside it.
 #
 # Regenerate with scripts/export_from_e1.py; see docs/scene-format.md.
 
@@ -182,6 +183,7 @@ routes:
   reachable_pairs: 300
   unreachable_pairs: 0
   speed_m_s: 1
+  polylines_for_graph_edges: 96   # the walked path per edge, in the npz
   columns: [i, j, distance_m, time_s]
   values:
     - [  0,   1,    93.8,    93.8]

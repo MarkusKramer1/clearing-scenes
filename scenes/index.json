@@ -13,6 +13,8 @@
       "vertices": 45,
       "edges": 221,
       "cloud_points": 253055,
+      "route_points": 5425,
+      "route_length_error_m": 0.0,
       "uncoverable_m2": 115.2
     },
     {
@@ -23,6 +25,8 @@
       "vertices": 134,
       "edges": 922,
       "cloud_points": 252251,
+      "route_points": 17835,
+      "route_length_error_m": 0.0001,
       "uncoverable_m2": 498.5
     },
     {
@@ -33,6 +37,8 @@
       "vertices": 90,
       "edges": 448,
       "cloud_points": 255574,
+      "route_points": 8120,
+      "route_length_error_m": 0.0,
       "uncoverable_m2": 292.4
     },
     {
@@ -43,6 +49,8 @@
       "vertices": 21,
       "edges": 94,
       "cloud_points": 253292,
+      "route_points": 1648,
+      "route_length_error_m": 0.0,
       "uncoverable_m2": 61.8
     },
     {
@@ -53,6 +61,8 @@
       "vertices": 25,
       "edges": 96,
       "cloud_points": 252789,
+      "route_points": 2232,
+      "route_length_error_m": 0.0,
       "uncoverable_m2": 80.0
     },
     {
@@ -63,6 +73,8 @@
       "vertices": 47,
       "edges": 209,
       "cloud_points": 253668,
+      "route_points": 3908,
+      "route_length_error_m": 0.0,
       "uncoverable_m2": 174.9
     }
   ]

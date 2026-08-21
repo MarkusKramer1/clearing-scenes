@@ -68,6 +68,7 @@ routes:
   reachable_pairs: 4005
   unreachable_pairs: 0
   speed_m_s: 1.0
+  polylines_for_graph_edges: 448   # the walked path per edge, in the npz
   columns: [i, j, distance_m, time_s]
   values:
     - [  0,   1,    43.2,    43.2]
@@ -101,6 +102,18 @@ counted in `unreachable_pairs`.
 Routes are lattice paths at `cell_size_m`, so they overestimate a smoothed path
 by a few per cent, and they ignore vehicle dynamics entirely.
 
+The YAML gives the *time and distance* for every pair. The **path itself** is in
+the npz, for the pairs that are also edges of the graph -- `edge_route_points`,
+one polyline per edge, reachable through `Scene.route(i, j)` and drawn by the
+viewer. That is the set worth carrying: an edge of the graph is a line of sight,
+and the ground between its two ends may be a building. On Blenheim Palace, edge
+2-8 spans 31.5 m of straight line and 108 m of walking.
+
+The polylines are simplified (Ramer-Douglas-Peucker at 0.12 m, below the cell
+size) so a 500-point lattice walk becomes a couple of dozen points. Simplifying
+shortens a path by up to about 5%, which is why every length quoted anywhere
+comes from `travel_metres` and never from measuring the polyline.
+
 ### What is NOT in the file, on purpose
 
 `evader_edges` is a count, not a list. The adjacency is recomputed from the
@@ -125,7 +138,7 @@ data cannot drift apart -- and it saves about 8 MB per scene.
 | `guard_offsets` / `guard_cells` | CSR | `G_ij` per edge |
 | `travel_seconds` / `travel_metres` | (n, n) f32 | all pairs, `inf` where unreachable |
 | `travel_component` | (n_nodes,) i32 | vertices sharing one can reach each other |
-| `route_points` / `route_offsets` / `route_ij` | polylines | the drawn roadmap, for viewers |
+| `edge_route_points` / `edge_route_offsets` | polylines | per graph edge, the path the robot walks |
 | `uncoverable` | (k,) i32 | cells no vertex sees |
 | `cloud_xyz` | (m, 3) f32 | the survey cloud, decimated, for context |
 

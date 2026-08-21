@@ -73,7 +73,8 @@ The full schedules — which vertices are held at every step — are in
 
 `web/index.html` opens straight off the file system: no server, no build step.
 Switch scenes, toggle the survey cloud, the walkable surface and the graph,
-click a vertex to see what it covers, and step through the clearing schedule.
+click a vertex to see what it covers, pick a route to see the ground the robot
+covers to walk it, and step through the clearing schedule.
 
 ![the viewer](docs/viewer.png)
 
@@ -81,7 +82,19 @@ The states it paints — cleared, contaminated, watched right now — are the on
 `clearing/verify.py` computed, shipped alongside the schedule, so the picture
 cannot disagree with the numbers beside it.
 
-`#scene=christ-church&step=28` in the URL is a linkable view.
+**Robot routes.** An edge of the graph is a line of sight; the ground between
+its two ends may be a building. The *Robot route* picker draws what the robot
+actually walks — the true shortest path over the walkable surface, the one the
+travel time in `scenes/*.yaml` is made of. Pick a vertex to see every route out
+of it, or a second vertex for one route with its distance, its time and how far
+it is from the straight line. Median detour across the six scenes is 1.08×, but
+the tail is what matters: on Blenheim Palace, edge 2–8 is 31.5 m of sight line
+and 108 m of walking, round the end of a wall.
+
+![a robot route](docs/route.png)
+
+The URL is a linkable view: `#scene=christ-church&step=28`,
+`#scene=christ-church&vertex=12`, `#scene=blenheim-palace&from=2&to=8`.
 
 ---
 

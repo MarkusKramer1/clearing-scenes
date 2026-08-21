@@ -82,6 +82,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .k-clear { background: #2494a4; }
 .k-dirty { background: #6b3550; }
 .k-seen  { background: #fab04a; }
+.k-route { background: #ff5fbf; }
 
 .foot { margin: 18px 0 0; color: var(--dim); font-size: 11px; }
 kbd { padding: 1px 4px; border: 1px solid var(--line); border-radius: 3px;
