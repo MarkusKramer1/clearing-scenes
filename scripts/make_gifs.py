@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Render one GIF per scene for the README: a turn around it, then a pass through.
+"""Render one GIF per scene for the README: one turn around the site.
 
 Frames come out of `clearing.render`, which is plain numpy -- no display, no
 browser, no OpenGL. `ffmpeg` turns them into a GIF via a per-clip palette,
 which is the difference between 2 MB and 12 MB for the same picture; without
 ffmpeg on PATH it falls back to Pillow.
 
-    python scripts/make_gifs.py [--scenes christ-church] [--width 720]
+`--fly N` appends a walk-through at sensor height; it is off by default.
+
+    python scripts/make_gifs.py [--scenes christ-church] [--width 480]
 """
 
 from __future__ import annotations
@@ -87,9 +89,10 @@ def caption(img: np.ndarray, text: str) -> np.ndarray:
 def render_scene(name: str, width: int, height: int, orbit: int, fly: int,
                  fps: int, out: Path) -> None:
     s = scene_mod.load(name, with_cloud=True)
-    cams = render.orbit_and_fly(s, n_orbit=orbit, n_fly=fly)
-    label = (f"{s.title}  {s.n_nodes} vertices  "
-             f"{s.doc['surface']['area_m2']:,.0f} m2").replace(",", " ")
+    cams = render.camera_path(s, n_orbit=orbit, n_fly=fly)
+    # the title alone: vertex counts and areas are in the README table beside
+    # the GIF, and at 480 px a second line of numbers is just noise
+    label = s.title
 
     tmp = Path(tempfile.mkdtemp(prefix=f"gif-{name}-"))
     try:
@@ -124,10 +127,10 @@ def render_scene(name: str, width: int, height: int, orbit: int, fly: int,
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--scenes", nargs="*", default=None)
-    ap.add_argument("--width", type=int, default=640)
-    ap.add_argument("--height", type=int, default=380)
-    ap.add_argument("--orbit", type=int, default=34)
-    ap.add_argument("--fly", type=int, default=22)
+    ap.add_argument("--width", type=int, default=480)
+    ap.add_argument("--height", type=int, default=300)
+    ap.add_argument("--orbit", type=int, default=48)
+    ap.add_argument("--fly", type=int, default=0)
     ap.add_argument("--fps", type=int, default=12)
     a = ap.parse_args()
 

@@ -173,13 +173,17 @@ class Frame:
 # ---------------------------------------------------------------------------
 
 
-def orbit_and_fly(scene, n_orbit: int = 56, n_fly: int = 40,
-                  elevation_deg: float = 30.0) -> list[Camera]:
-    """One turn around the site, then a pass through it at head height.
+def camera_path(scene, n_orbit: int = 48, n_fly: int = 0,
+                elevation_deg: float = 30.0) -> list[Camera]:
+    """One turn around the site, and optionally a pass through it afterwards.
 
-    The turn says how big the place is and where the graph sits in it; the pass
-    through says what the walkable surface actually looks like from where the
-    robot stands, which an orbit at thirty degrees never shows.
+    The turn is what the README GIFs use: it says how big the place is, how the
+    walkable surface is laid out in it, and where the graph sits on top.
+
+    The pass through (`n_fly > 0`) puts the camera at sensor height and walks it
+    along the site's principal axis, which shows what the surface looks like
+    from where the robot stands. It is off by default: at the size a GIF is read
+    at, it costs more frames than it earns.
     """
     xyz = scene.cell_xyz
     centre = xyz.mean(axis=0)

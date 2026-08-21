@@ -25,53 +25,15 @@ adding the air family back would take.
 ## The scenes
 
 Oxford Spires Dataset (Tao et al., IJRR 2025) — terrestrial laser scan, six
-Oxford sites. Each GIF turns once around the site and then walks through it:
-grey is the survey cloud, teal is the walkable surface, amber is the graph.
+Oxford sites. Each GIF turns once around the site: grey is the survey cloud,
+teal is the walkable surface, amber is the guard-region graph.
 
-### Christ Church
-
-![Christ Church](docs/gifs/christ-church.gif)
-
-9 959 m² of quad, hall and cloister. 90 vertices, 448 edges — 111 m² per
-vertex. The vertices are not spread evenly: an open quad takes a handful, and
-the rest go to the cloisters and passages, where a 30 m sensor is stopped by a
-wall a few metres away and one vertex genuinely covers tens of square metres
-rather than hundreds.
-
-### Bodleian Library
-
-![Bodleian Library](docs/gifs/bodleian-library.gif)
-
-The largest instance here: 12 959 m² and 134 vertices, and the one the baseline
-finds hardest — 21 robots at the peak against 9 for Blenheim's near-identical
-floor area. Enclosure, not size, is what costs robots.
-
-### Blenheim Palace
-
-![Blenheim Palace](docs/gifs/blenheim-palace.gif)
-
-11 709 m² of mostly open forecourt. Almost as much floor as the Bodleian and a
-third of the vertices — 260 m² each, the sparsest graph in the set.
-
-### Keble College
-
-![Keble College](docs/gifs/keble-college.gif)
-
-6 365 m² across two quads, 25 vertices, 255 m² each — open ground again, and
-the second sparsest graph here.
-
-### Observatory Quarter
-
-![Observatory Quarter](docs/gifs/observatory-quarter.gif)
-
-3 505 m² between buildings; 47 vertices for half of Keble's area and 75 m²
-each, which is what a site cut up by structure looks like in the graph.
-
-### HB Allen Centre
-
-![HB Allen Centre](docs/gifs/hb-allen-centre.gif)
-
-1 292 m², 21 vertices. The smallest scene, and the one to try things on first.
+| | | |
+|:--:|:--:|:--:|
+| ![Christ Church](docs/gifs/christ-church.gif) | ![Bodleian Library](docs/gifs/bodleian-library.gif) | ![Blenheim Palace](docs/gifs/blenheim-palace.gif) |
+| **Christ Church** — 9 959 m², 90 vertices, 111 m² each. An open quad takes a handful of vertices; the rest go to the cloisters and passages, where a 30 m sensor is stopped by a wall a few metres away. | **Bodleian Library** — 12 959 m², 134 vertices. The largest instance and the one the baseline finds hardest: 21 robots against 9 for Blenheim's near-identical floor area. Enclosure, not size, is what costs robots. | **Blenheim Palace** — 11 709 m² of mostly open forecourt, 45 vertices, 260 m² each. The sparsest graph in the set. |
+| ![Keble College](docs/gifs/keble-college.gif) | ![Observatory Quarter](docs/gifs/observatory-quarter.gif) | ![HB Allen Centre](docs/gifs/hb-allen-centre.gif) |
+| **Keble College** — 6 365 m² across two quads, 25 vertices, 255 m² each. Open ground again. | **Observatory Quarter** — 3 505 m² between buildings, 47 vertices, 75 m² each. What a site cut up by structure looks like in the graph. | **HB Allen Centre** — 1 292 m², 21 vertices. The smallest scene, and the one to try things on first. |
 
 ---
 
