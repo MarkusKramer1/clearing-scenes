@@ -139,28 +139,32 @@ watch **some** of the rim of `D(p_i)`. Every graph-level clearing argument then
 treats *"i is clear and a neighbour is occupied"* as enough to keep it clear.
 So: how much of the rim is *some*?
 
-| scene | n | best neighbour (median) | all neighbours at once | complete | **every vertex at once** | complete |
-|---|--:|--:|--:|--:|--:|--:|
-| blenheim-palace | 36 | 0.63 | 0.94 | 0/36 | **1.00** | 36/36 |
-| bodleian-library | 112 | 0.51 | 0.95 | 0/112 | **1.00** | 112/112 |
-| christ-church | 62 | 0.54 | 0.85 | 0/62 | **1.00** | 62/62 |
-| hb-allen-centre | 20 | 0.63 | 0.86 | 0/20 | **1.00** | 20/20 |
-| keble-college | 24 | 0.77 | 0.93 | 0/24 | **1.00** | 24/24 |
-| observatory-quarter | 39 | 0.57 | 0.88 | 0/39 | **1.00** | 39/39 |
-| **all** | **293** | **0.54** | **0.92** | **0/293** | **1.00** | **293/293** |
+| scene | n | best single neighbour (median) | every neighbour at once (median) | min | rims closed |
+|---|--:|--:|--:|--:|--:|
+| blenheim-palace | 36 | 0.63 | 0.94 | 0.11 | 0/36 |
+| bodleian-library | 112 | 0.51 | 0.95 | 0.07 | 0/112 |
+| christ-church | 62 | 0.54 | 0.85 | 0.00 | 0/62 |
+| hb-allen-centre | 20 | 0.63 | 0.86 | 0.10 | 0/20 |
+| keble-college | 24 | 0.77 | 0.93 | 0.07 | 0/24 |
+| observatory-quarter | 39 | 0.57 | 0.88 | 0.00 | 0/39 |
+| **all** | **293** | **0.54** | **0.92** | **0.00** | **0/293** |
 
 The median neighbour watches **54%** of the rim it is supposed to guard, and
 occupying *every* neighbour of a vertex simultaneously **still** leaves a gap —
-on all 293 vertices of all six sites. Not one rim in the corpus is closed by
-the graph.
+on all 293 vertices of all six sites.
 
-**The last column is the control, and it decides who is to blame.** Every one
-of those 293 rims *is* closed by the vertex set — median 1.00, minimum 1.00,
-293 of 293 complete. So the sampling is sound and there is nothing wrong with
-where the vertices are. What fails is the **edge relation**: a rim needs
-several watchers at once, an edge names them one at a time, and no amount of
-discharging edge obligations assembles the set. A set cover over vertices can
-hold a boundary that no set of edges describes.
+**The second column is the ceiling, not just a neighbour statistic**, and that
+is what makes this structural. A vertex that watches any part of `dD(i)` has a
+non-empty guard region with `i` and is therefore *by definition* a neighbour of
+`i`: "every neighbour" and "every other vertex" are the same set. So **no set
+of vertices other than `i` closes `i`'s rim** — a median 8% of it, and on two
+scenes the whole of some rim, is visible from nowhere but `i` itself.
+
+<!-- a column measuring the definition rather than the geometry -->
+There is an obvious third column — the rim covered by the *whole* vertex set —
+and it is **vacuous**: `dD(i)` is a subset of `D(i)`, so any union that
+includes `i` covers it outright and reports 1.00 everywhere. It was in
+`rim_coverage.py` for one commit and is recorded here so it is not added back.
 
 And this is exactly where the tree strategy dies. `dD(p_i)` is by definition a
 subset of `D(p_i)`, so **a robot standing at `i` watches the whole of its own
@@ -176,14 +180,83 @@ So the guard graph records **who can watch a piece of a boundary**, never
 obligation has still left a hole in every detection set it cleared, and an
 arbitrarily fast evader needs one hole.
 
-The gap is therefore not a tuning failure of GSST, and it is not a sampling
-failure either. It is the abstraction: the graph is a faithful record of *who
-can see part of what*, and clearing needs *what it takes to close a boundary*.
-Those are different questions, and the second one is a set cover.
+The gap is therefore not a tuning failure of GSST. **A detection set on this
+geometry cannot be held by anybody except the robot standing in it** — so any
+strategy whose vertices are regions and whose guards are neighbours is unsound
+here, whatever order it visits them in. What can be repaired, and at what
+price, is [the next section](#what-would-have-to-change).
 
 This is the structural reason `clearing/kolling.py` covers the **cell**
 frontier with a set cover over vertices instead of discharging edges: a set
 cover can hold a boundary that no single edge, and no set of edges, describes.
+
+---
+
+## What would have to change
+
+Three repairs follow from the measurement, and they attack it at three
+different places. Only the third is cheap.
+
+### 1. Never lift a robot — sound, and it costs the whole vertex set
+
+If no rim can be held by anyone but the vertex itself, the honest fix inside
+the 2010 model is to never release a swept vertex. That clears: it is
+`verify.all_at_once`, which leaves only the 4–18 m² no vertex can see. But the
+release rule was the only thing keeping the team small, so the team becomes the
+vertex set: **62 robots at Christ Church against the cell planner's 12.**
+
+This is not a straw man — it is roughly what A7 already does. Its traversal
+holds nearly every visited node, it *does* clear the cell model, and it pays
+three to five times the cell planner's team. The two results agree, and
+together they say the cost of soundness under per-vertex thinking is a factor
+of three to five at best.
+
+### 2. Sample so that rims *are* closable — the upstream repair
+
+The gap is a property of **where the vertices are**, and the sampler never
+tried to close it: it places positions greedily until free space is *covered*,
+which is an art-gallery objective and says nothing about whether each `D(p)`
+has its boundary watched by the others. A sampler carrying the extra constraint
+
+> for every vertex `i`, `dD(i)` must be covered by `∪ D(j)` over `j ≠ i`
+
+would make the guard graph mean what the clearing argument assumes it means,
+and the 2010 machinery would then be sound on it unchanged. The median shortfall
+is **8% of a rim**, so this is plausibly a small number of extra positions
+rather than a redesign — but it is measured here as a shortfall, not as a
+count of the vertices that would fix it, and that count is the thing to
+establish before believing the repair is cheap.
+
+### 3. Hold the frontier of the cleared *region*, not the rims of its parts
+
+This is what `clearing/kolling.py` does, and the reason it wins is arithmetic
+rather than cleverness. When two cleared detection sets touch, the shared part
+of their rims stops being a boundary — but per-vertex thinking pays for it
+anyway. Measured at each scene's peak step, over the vertices whose detection
+sets lie wholly inside the cleared region:
+
+| scene | Σ rim cells of the cleared vertices | frontier of their union | cancelled |
+|---|--:|--:|--:|
+| blenheim-palace | 14 791 | 1 852 | 87% |
+| bodleian-library | 93 393 | 2 228 | **98%** |
+| christ-church | 23 375 | 368 | **98%** |
+| hb-allen-centre | 8 649 | 176 | **98%** |
+| keble-college | 5 344 | 991 | 81% |
+| observatory-quarter | 18 822 | 751 | 96% |
+
+**81–98% of the boundary a per-vertex rule would guard is interior.** The
+region frontier is 2–19% of the sum of the rims, and it is coverable — which is
+why the cell planner clears Christ Church with 12 robots where holding every
+rim would need 62.
+
+<callout>
+The three repairs are not alternatives of equal standing. (1) is sound and
+expensive; (3) is what this project already does and is cheap; (2) is the only
+one that would leave the 2010 method itself intact, and it is the one nobody
+has costed. It is <b>A5 — Overlap-enforcing sampling</b> in the Approaches
+database, still "Not implemented", and this measurement is the justification
+that row was missing.
+</callout>
 
 ---
 

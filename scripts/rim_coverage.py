@@ -30,7 +30,7 @@ import numpy as np                                  # noqa: E402
 from clearing import scene as scene_mod             # noqa: E402
 
 
-def coverage(s) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def coverage(s) -> tuple[np.ndarray, np.ndarray]:
     """Per vertex: the fraction of its rim covered by the best single
     neighbour, by all of its GRAPH NEIGHBOURS at once, and by the whole vertex
     set at once.
@@ -49,12 +49,8 @@ def coverage(s) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         nb[j].append(i)
 
     seen = np.zeros(s.n_cells, dtype=bool)
-    everything = np.zeros(s.n_cells, dtype=bool)
-    for d in s.detection:
-        everything[d] = True
     best = np.zeros(s.n_nodes)
     allof = np.zeros(s.n_nodes)
-    ceil = np.zeros(s.n_nodes)
     for i in range(s.n_nodes):
         rim = s.rim[i]
         if rim.size == 0:
@@ -69,8 +65,7 @@ def coverage(s) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
             seen[s.detection[j]] = False
         best[i] = top / rim.size
         allof[i] = int(union.sum()) / rim.size
-        ceil[i] = int(everything[rim].sum()) / rim.size
-    return best, allof, ceil
+    return best, allof
 
 
 def main() -> None:
@@ -78,30 +73,29 @@ def main() -> None:
     ap.add_argument("--scenes", nargs="*", default=None)
     a = ap.parse_args()
 
-    hdr = (f"{'scene':>22} {'n':>4} | {'best neighbour':>16} | "
-           f"{'all neighbours':>16} {'complete':>9} | "
-           f"{'every vertex':>14} {'complete':>9}")
-    print(hdr)
-    print(f"{'':>22} {'':>4} | {'median':>7} {'mean':>8} | "
-          f"{'median':>7} {'mean':>8} {'':>9} | {'median':>6} {'min':>7} {'':>9}")
+    print(f"{'scene':>22} {'n':>4} | {'best single neighbour':>19} | "
+          f"{'EVERY neighbour at once = every other vertex':>45}")
+    print(f"{'':>22} {'':>4} | {'median':>8} {'mean':>9} | "
+          f"{'median':>8} {'mean':>9} {'min':>8} {'closed':>10}")
     rows = []
     for name in (a.scenes or scene_mod.available()):
         s = scene_mod.load(name)
-        b, al, ce = coverage(s)
-        rows.append((b, al, ce))
-        print(f"{name:>22} {s.n_nodes:>4} | {np.median(b):>7.2f} {b.mean():>8.2f} | "
-              f"{np.median(al):>7.2f} {al.mean():>8.2f} "
-              f"{int((al > 0.999).sum()):>4}/{len(al):<4} | "
-              f"{np.median(ce):>6.2f} {ce.min():>7.2f} "
-              f"{int((ce > 0.999).sum()):>4}/{len(ce):<4}")
+        b, al = coverage(s)
+        rows.append((b, al))
+        print(f"{name:>22} {s.n_nodes:>4} | {np.median(b):>8.2f} {b.mean():>9.2f} | "
+              f"{np.median(al):>8.2f} {al.mean():>9.2f} {al.min():>8.2f} "
+              f"{int((al > 0.999).sum()):>4}/{len(al):<5}")
     b = np.concatenate([r[0] for r in rows])
     al = np.concatenate([r[1] for r in rows])
-    ce = np.concatenate([r[2] for r in rows])
-    print(f"{'all scenes':>22} {len(b):>4} | {np.median(b):>7.2f} {b.mean():>8.2f} | "
-          f"{np.median(al):>7.2f} {al.mean():>8.2f} "
-          f"{int((al > 0.999).sum()):>4}/{len(al):<4} | "
-          f"{np.median(ce):>6.2f} {ce.min():>7.2f} "
-          f"{int((ce > 0.999).sum()):>4}/{len(ce):<4}")
+    print(f"{'all scenes':>22} {len(b):>4} | {np.median(b):>8.2f} {b.mean():>9.2f} | "
+          f"{np.median(al):>8.2f} {al.mean():>9.2f} {al.min():>8.2f} "
+          f"{int((al > 0.999).sum()):>4}/{len(al):<5}")
+    print()
+    print("The second block is the ceiling, not just a neighbour statistic: a "
+          "vertex that\nwatches any part of dD(i) has a non-empty guard region "
+          "with i and is therefore\na neighbour of i. So no set of vertices "
+          "OTHER THAN i closes i's rim -- which is\nwhy D(i) cannot be held "
+          "once the robot standing on i leaves.")
 
 
 if __name__ == "__main__":
