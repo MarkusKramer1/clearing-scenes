@@ -3,64 +3,68 @@ window.SCENE_INDEX=[
   "name": "blenheim-palace",
   "title": "Blenheim Palace",
   "file": "data/blenheim-palace.js",
-  "mb": 2.12,
+  "mb": 2.04,
   "stats": {
-   "cells": 292730,
-   "areaM2": 11709.2,
-   "vertices": 45,
-   "edges": 221,
-   "edgesShady": 100,
-   "routePoints": 5425,
+   "cells": 283432,
+   "areaM2": 11337.3,
+   "vertices": 36,
+   "edges": 167,
+   "edgesShady": 55,
+   "routePoints": 3787,
    "range": 30.0,
-   "uncoverableM2": 115.2
+   "uncoverableM2": 102.2,
+   "excludedM2": 371.9
   }
  },
  {
   "name": "bodleian-library",
   "title": "Bodleian Library",
   "file": "data/bodleian-library.js",
-  "mb": 3.46,
+  "mb": 3.18,
   "stats": {
-   "cells": 323972,
-   "areaM2": 12958.9,
-   "vertices": 134,
-   "edges": 922,
-   "edgesShady": 324,
-   "routePoints": 17835,
+   "cells": 286733,
+   "areaM2": 11469.3,
+   "vertices": 112,
+   "edges": 808,
+   "edgesShady": 238,
+   "routePoints": 15384,
    "range": 30.0,
-   "uncoverableM2": 498.5
+   "uncoverableM2": 409.2,
+   "excludedM2": 1489.6
   }
  },
  {
   "name": "christ-church",
   "title": "Christ Church",
   "file": "data/christ-church.js",
-  "mb": 2.49,
+  "mb": 2.09,
   "stats": {
-   "cells": 248972,
-   "areaM2": 9958.9,
-   "vertices": 90,
-   "edges": 448,
-   "edgesShady": 123,
-   "routePoints": 8120,
+   "cells": 203314,
+   "areaM2": 8132.6,
+   "vertices": 62,
+   "edges": 245,
+   "edgesShady": 87,
+   "routePoints": 4659,
    "range": 30.0,
-   "uncoverableM2": 292.4
+   "uncoverableM2": 205.4,
+   "excludedM2": 1826.3
   }
  },
  {
   "name": "hb-allen-centre",
   "title": "HB Allen Centre",
   "file": "data/hb-allen-centre.js",
-  "mb": 1.18,
+  "mb": 1.19,
   "stats": {
-   "cells": 32306,
-   "areaM2": 1292.2,
-   "vertices": 21,
-   "edges": 94,
-   "edgesShady": 45,
-   "routePoints": 1648,
+   "cells": 32010,
+   "areaM2": 1280.4,
+   "vertices": 20,
+   "edges": 84,
+   "edgesShady": 26,
+   "routePoints": 1278,
    "range": 30.0,
-   "uncoverableM2": 61.8
+   "uncoverableM2": 64.7,
+   "excludedM2": 11.8
   }
  },
  {
@@ -69,30 +73,32 @@ window.SCENE_INDEX=[
   "file": "data/keble-college.js",
   "mb": 1.57,
   "stats": {
-   "cells": 159132,
-   "areaM2": 6365.3,
-   "vertices": 25,
-   "edges": 96,
-   "edgesShady": 40,
-   "routePoints": 2232,
+   "cells": 154283,
+   "areaM2": 6171.3,
+   "vertices": 24,
+   "edges": 84,
+   "edgesShady": 44,
+   "routePoints": 1727,
    "range": 30.0,
-   "uncoverableM2": 80.0
+   "uncoverableM2": 56.6,
+   "excludedM2": 194.0
   }
  },
  {
   "name": "observatory-quarter",
   "title": "Observatory Quarter",
   "file": "data/observatory-quarter.js",
-  "mb": 1.53,
+  "mb": 1.46,
   "stats": {
-   "cells": 87626,
-   "areaM2": 3505.0,
-   "vertices": 47,
-   "edges": 209,
-   "edgesShady": 75,
-   "routePoints": 3908,
+   "cells": 70957,
+   "areaM2": 2838.3,
+   "vertices": 39,
+   "edges": 203,
+   "edgesShady": 74,
+   "routePoints": 4466,
    "range": 30.0,
-   "uncoverableM2": 174.9
+   "uncoverableM2": 123.3,
+   "excludedM2": 666.8
   }
  }
 ];

@@ -7,6 +7,12 @@ A `Scene` is everything a clearing algorithm needs and nothing else:
     edges        the guard-region graph, regular or shady
     travel       vertex-to-vertex time and distance for the ground robot
 
+All of it is already inside the scenario boundary. The cut happens once, in
+`scripts/export_from_e1.py`, against the lines drawn and approved upstream in
+`e1-clearing-graph`; by the time a scene is loaded there is no outside left to
+exclude, and no algorithm in this package has to know the boundary exists.
+`Scene.boundary` is the line itself, carried for drawing and for the record.
+
 Two things are computed here rather than shipped, because both are short and
 shipping them would let a file drift away from the rule that defines it:
 the evader adjacency (`Scene.evader_edges`) and the all-pairs travel times
@@ -106,6 +112,18 @@ class Scene:
     travel_metres: np.ndarray
     uncoverable: np.ndarray         # cells no vertex sees, at any team size
 
+    #: The scenario boundary as line segments in world XY, `(n, 2, 2)`: the
+    #: faces between a cell the approved boundary retains and one it does not.
+    #: Empty for a scene exported with `--no-boundary`.
+    #:
+    #: It is geometry to draw and nothing else. Nothing in this package tests
+    #: a cell against it, because everything here is already inside it -- and
+    #: a second, approximate copy of a cut that has already been made is how
+    #: two answers to the same question get into one repository.
+    boundary_seg: np.ndarray = field(
+        repr=False, default_factory=lambda: np.zeros((0, 2, 2), np.float32))
+    boundary_cell_size: float = 0.0
+
     #: per guard-graph edge, the path the robot walks between its two
     #: vertices: the true shortest route over the walkable surface, simplified
     #: for drawing. Empty where the two vertices cannot reach each other.
@@ -130,6 +148,11 @@ class Scene:
     @property
     def cell_area(self) -> float:
         return self.cell_size ** 2
+
+    @property
+    def bounded(self) -> bool:
+        """Whether a scenario boundary was applied when this scene was cut."""
+        return bool((self.doc.get("boundary") or {}).get("bounded"))
 
     def area(self, mask_or_idx) -> float:
         a = np.asarray(mask_or_idx)
@@ -209,6 +232,45 @@ class Scene:
             out[self.detection[int(v)]] = True
         return out
 
+    @cached_property
+    def boundary_fence(self) -> tuple[float, float]:
+        """`(z0, z1)`: the height to extrude the boundary line to, for drawing.
+
+        A boundary drawn as a line on the floor is invisible in both renderers
+        here -- the walkable surface is drawn as points about a cell wide and
+        covers it, which is exactly the ground the line is meant to bound. So
+        it is extruded into a low fence whose FOOT is still exactly the line.
+
+        ONE HEIGHT, EVERYWHERE, and not the ground under each segment. The
+        boundary is a 2D region with no height, and a fence draped over the
+        surface would assert one it does not have -- and the surface it would
+        drape over is not terrain: the rim runs along and through buildings,
+        so a column under an arcade reports the terrace above it. The ground
+        within a metre of the rim spans 5.0 m at Blenheim and 6.4 m at Christ
+        Church, which is what a draped fence would be following.
+
+        So the extent is measured once per scene instead: the foot just under
+        the lowest ground the rim runs along, and the rail the taller of five
+        metres -- the height e1-clearing-graph uses, chosen to stay under the
+        eaves -- and a metre above the highest, so the rail clears the Christ
+        Church terrace rather than disappearing into it and leaving the
+        boundary looking like it has gaps.
+
+        Computed here rather than in each renderer, so the viewer and the GIFs
+        cannot draw the same boundary at two different heights.
+        """
+        seg = np.asarray(self.boundary_seg, dtype=np.float64)
+        if not len(seg):
+            return (0.0, 0.0)
+        from scipy.spatial import cKDTree
+
+        near = cKDTree(self.cell_xyz[:, :2]).query_ball_point(seg.mean(axis=1), 1.0)
+        hit = [np.asarray(i, dtype=np.int64) for i in near if len(i)]
+        z = (self.cell_xyz[np.unique(np.concatenate(hit)), 2] if hit
+             else self.cell_xyz[:, 2])
+        z0 = float(np.percentile(z, 2)) - 0.3
+        return z0, max(z0 + 5.0, float(np.percentile(z, 98)) + 1.0)
+
     def route(self, i: int, j: int) -> np.ndarray:
         """The walked path between two vertices, or an empty array.
 
@@ -258,6 +320,10 @@ def load(name: str, scenes_dir: Path | str = SCENES_DIR,
         guard=csr("guard"),
         travel_seconds=z["travel_seconds"], travel_metres=z["travel_metres"],
         uncoverable=z["uncoverable"], routes=routes,
+        boundary_seg=(z["boundary_seg"] if "boundary_seg" in z.files
+                      else np.zeros((0, 2, 2), np.float32)),
+        boundary_cell_size=(float(z["boundary_cell_size"])
+                            if "boundary_cell_size" in z.files else 0.0),
         cloud_xyz=z["cloud_xyz"] if with_cloud else None,
         speck_max_area_m2=float(speck_max_area_m2),
     )

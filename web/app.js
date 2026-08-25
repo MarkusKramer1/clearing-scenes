@@ -1,9 +1,12 @@
 /* The scene viewer.
  *
  * Everything it draws is a point cloud or a line set, so there is one geometry
- * per layer and no scene graph to speak of. The only slightly involved part is
- * `paint()`, which decides what colour each walkable cell gets: its height, the
- * detection set of a selected vertex, or the state of a schedule step.
+ * per layer and no scene graph to speak of. The only slightly involved parts
+ * are `paint()`, which decides what colour each walkable cell gets -- its
+ * height, the detection set of a selected vertex, or the state of a schedule
+ * step -- and the robot view below it, which puts the fleet on the schedule:
+ * one marker with an id per robot, the ground it walks between two steps, and
+ * the surface the one you click on watches.
  */
 
 const $ = (s) => document.querySelector(s);
@@ -26,6 +29,18 @@ function dequantise(pack) {
     out[i] = q[i] * sx + ox;
     out[i + 1] = q[i + 1] * sy + oy;
     out[i + 2] = q[i + 2] * sz + oz;
+  }
+  return out;
+}
+
+/** The same, for the packed XY of the boundary line: two axes, not three. */
+function dequantise2(pack) {
+  const q = decode(pack.q, Uint16Array);
+  const out = new Float32Array(q.length);
+  const [sx, sy] = pack.scale, [ox, oy] = pack.offset;
+  for (let i = 0; i < q.length; i += 2) {
+    out[i] = q[i] * sx + ox;
+    out[i + 1] = q[i + 1] * sy + oy;
   }
   return out;
 }
@@ -77,12 +92,44 @@ const ROUTE_HOT = 0xff5fbf;  // the selected one
 const ROUTE_LIFT = 0.45;
 const ROUTE_LIFT_SEL = 0.75;
 
+// The scenario boundary: two rails at the foot and the top of a low fence,
+// bright, with faint posts every couple of metres between them. That is how
+// e1-clearing-graph draws it, and the shape is worth keeping.
+//
+// THE COLOUR IS NOT. E1 draws the boundary amber because nothing else in its
+// viewers is; here amber is the guard-region edges and pale yellow is the
+// vertices, and an amber fence read as more graph -- a ring of edges around
+// the site, which is the one thing it is not. Cool blue instead, for the same
+// reason the routes above are violet: it has to be told apart from the teal
+// surface and the amber graph at a glance, and blue is the hue this palette
+// has not spent.
+//
+// It is a fence and not a line on the floor because the floor is what it
+// bounds: the walkable cells are sprites nearly two cells across and a line
+// lying on them is covered by them, which is invisible from exactly the
+// overhead view the site is read from. The FOOT of the fence is still exactly
+// the boundary; the rest of it is only what makes the foot findable in three
+// dimensions. Posts are drawn faint because at any distance a fence drawn
+// evenly reads as a solid wall, and a wall hides the site it bounds.
+const BOUND = 0x8fd4ff;
+const POST_EVERY_M = 2.4;
+
+// The robot view. A step is a set of vertices and says nothing about which
+// machine stands where, so the identities come from the roster shipped beside
+// the schedule (clearing/roster.py): a fleet as large as the peak team, matched
+// step to step by least total travel.
+const TRANSIT = 0.75;        // of a play interval spent walking, the rest held
+const STEP_MS = 550;         // one step, in the plain schedule playback
+const WALK_MS = 1500;        // one step, when the walking is being animated
+
 /* ------------------------------------------------------------------- scene */
 
 let renderer, camera, world, raycaster;
 let S = null;               // the loaded scene payload
 let G = {};                 // the THREE objects of the current scene
-let playing = null;
+let labels = [];            // one id sprite per robot of the current scene
+let selRobot = -1;
+let playing = false, phase = 0, lastMs = 0;
 
 function init() {
   renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -103,17 +150,27 @@ function init() {
   }
   sel.onchange = () => loadScene(sel.value);
 
-  for (const id of ["cloud", "surface", "edges", "shady", "nodes", "routes"]) {
+  for (const id of ["cloud", "surface", "edges", "shady", "nodes", "routes",
+                    "boundary"]) {
     $("#l-" + id).onchange = applyLayers;
   }
   $("#route-from").onchange = () => { fillRouteTo(); drawRoute(); };
   $("#route-to").onchange = drawRoute;
-  $("#vertex").onchange = () => { $("#show-sched").checked = false; paint(); };
-  $("#step").oninput = () => { $("#vertex").value = "-1";
-                               $("#show-sched").checked = true; paint(); };
+  $("#vertex").onchange = () => { $("#show-sched").checked = false;
+                                  selRobot = -1; paint(); };
+  $("#step").oninput = onScrub;
   $("#show-sched").onchange = () => { $("#vertex").value = "-1"; paint(); };
+  $("#show-robots").onchange = () => { $("#vertex").value = "-1"; paint(); };
+  $("#fleet-list").onclick = (e) => {
+    const row = e.target.closest("[data-r]");
+    if (row) selectRobot(+row.dataset.r === selRobot ? -1 : +row.dataset.r);
+  };
   $("#play").onclick = togglePlay;
-  addEventListener("keydown", (e) => { if (e.key === "r" || e.key === "R") frame(); });
+  addEventListener("keydown", (e) => {
+    if (e.key === "r" || e.key === "R") frame();
+    if (e.key === "ArrowLeft") stepBy(-1);
+    if (e.key === "ArrowRight") stepBy(1);
+  });
   addEventListener("resize", resize);
   renderer.domElement.addEventListener("click", pick);
   orbit(renderer.domElement);
@@ -123,7 +180,20 @@ function init() {
   sel.value = window.SCENE_INDEX.some((s) => s.name === want.scene)
     ? want.scene : window.SCENE_INDEX[0].name;
   loadScene(sel.value);
-  (function loop() { requestAnimationFrame(loop); renderer.render(world, camera); })();
+  // The loop is a clock, not just a repaint: playing the schedule with the
+  // robots on walks them along their paths, and that has to be told how much
+  // time went by rather than how many frames.
+  (function loop(ms) {
+    requestAnimationFrame(loop);
+    if (playing && S) {
+      const dt = lastMs ? Math.min(ms - lastMs, 250) : 0;
+      lastMs = ms;
+      phase += dt / (robotMode() ? WALK_MS : STEP_MS);
+      if (phase >= 1) { phase = 0; stepBy(1); }
+      else if (robotMode()) placeRobots(phase);
+    } else lastMs = 0;
+    renderer.render(world, camera);
+  })();
 }
 
 function resize() {
@@ -150,6 +220,13 @@ function loadScene(name) {
 
 function build(data) {
   stopPlay();
+  selRobot = -1;
+  for (const sp of labels) {
+    world.remove(sp);
+    sp.material.map.dispose();
+    sp.material.dispose();
+  }
+  labels = [];
   for (const k of Object.keys(G)) {
     world.remove(G[k]);
     G[k].geometry && G[k].geometry.dispose();
@@ -208,18 +285,74 @@ function build(data) {
   G.routeSel = segments(new Float32Array(0), ROUTE_HOT, 1.0);
   G.routeDots = points(new Float32Array(0), null, 1.6, ROUTE_HOT);
 
+  // the scenario boundary -- where the site stops, and where the surface,
+  // the vertices and the routes above were all cut to
+  const bnd = data.boundary;
+  if (bnd) {
+    const seg = dequantise2(bnd);
+    const [z0, z1] = bnd.fence;
+    // Every segment is one boundary cell wide and they come out of the mask in
+    // raster order, which runs along the rim, so every k-th segment lands
+    // roughly every k cells of line rather than all of them in one corner.
+    const kpost = Math.max(1, Math.round(POST_EVERY_M / (bnd.cellSize || 0.4)));
+    const rails = [], posts = [];
+    for (let q = 0; q < seg.length / 4; q++) {
+      const ax = seg[4 * q], ay = seg[4 * q + 1];
+      const bx = seg[4 * q + 2], by = seg[4 * q + 3];
+      rails.push(ax, ay, z0, bx, by, z0, ax, ay, z1, bx, by, z1);
+      if (q % kpost === 0) posts.push(ax, ay, z0, ax, ay, z1);
+    }
+    G.bound = segments(new Float32Array(rails), BOUND, 0.9);
+    G.boundPosts = segments(new Float32Array(posts), BOUND, 0.28);
+  }
+
   G.held = points(new Float32Array(0), null, 4.2, 0xff6a3d);
+
+  // the fleet: a marker per robot, the legs of the current step in the robots'
+  // own colours, and the selected robot's walked track
+  S.roster = data.schedule ? data.schedule.roster : null;
+  S.legCache = new Map();
+  S.robotIds = [];
+  if (S.roster) {
+    S.robotPts = dequantise(S.roster.paths);
+    S.robotOff = decode(S.roster.paths.offsets, Uint32Array);
+    S.moveOf = S.roster.moves.map((step) => {
+      const m = new Map();
+      for (const mv of step) m.set(mv.r, mv);
+      return m;
+    });
+  }
+  G.halo = discs(6.4, 0.5);          // behind the marker of the selected robot
+  G.robots = discs(3.6);
+  G.legs = vsegments(new Float32Array(0), new Float32Array(0), 0.95);
+  G.legDots = points(new Float32Array(0), new Float32Array(0), 1.5);
+  G.track = segments(new Float32Array(0), 0xffffff, 0.55);
+  G.trackDots = points(new Float32Array(0), null, 1.6, 0xffffff);
 
   for (const k of Object.keys(G)) world.add(G[k]);
 
   // detection sets, decoded lazily -- most are never looked at
   S.dsetCache = new Map();
 
+  // How big an id sprite has to be to read at the framing `frame()` picks: the
+  // camera sits about one site-span away, so a label of a fortieth of the span
+  // lands at roughly twenty pixels however large the site is.
+  const bb = new THREE.Box3().setFromBufferAttribute(
+    G.surface.geometry.attributes.position);
+  S.span = Math.max(bb.getSize(new THREE.Vector3()).x,
+                    bb.getSize(new THREE.Vector3()).y);
+  S.labelSize = S.span * 0.025;
+  if (S.roster) makeLabels(S.roster.nRobots);
+
   fillPanel();
   applyLayers();
   const want = hashState();
   if (want.vertex !== null) $("#vertex").value = want.vertex;
   if (want.step !== null) { $("#step").value = want.step; $("#show-sched").checked = true; }
+  if (want.robot !== null && S.roster && want.robot < S.roster.nRobots) {
+    $("#show-robots").checked = true;
+    selRobot = want.robot;
+  }
   if (want.from !== null) {
     $("#route-from").value = want.from;
     fillRouteTo();
@@ -231,12 +364,12 @@ function build(data) {
   frame();
 }
 
-/** `#scene=christ-church&vertex=12` or `&step=7` -- a linkable view. */
+/** `#scene=christ-church&vertex=12`, `&step=7`, `&robot=3` -- a linkable view. */
 function hashState() {
   const q = new URLSearchParams(location.hash.replace(/^#/, ""));
   const num = (k) => (q.has(k) ? parseInt(q.get(k), 10) : null);
   return { scene: q.get("scene"), vertex: num("vertex"), step: num("step"),
-           from: num("from"), to: num("to") };
+           from: num("from"), to: num("to"), robot: num("robot") };
 }
 
 /** Every edge index, as the default "all routes" selection. */
@@ -285,6 +418,48 @@ function segments(xyz, colour, opacity) {
   g.setAttribute("position", new THREE.Float32BufferAttribute(xyz, 3));
   return new THREE.LineSegments(g, new THREE.LineBasicMaterial({
     color: colour, transparent: true, opacity }));
+}
+
+function vsegments(xyz, colours, opacity) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(xyz, 3));
+  g.setAttribute("color", new THREE.Float32BufferAttribute(colours, 3));
+  return new THREE.LineSegments(g, new THREE.LineBasicMaterial({
+    vertexColors: true, transparent: true, opacity }));
+}
+
+/** Robot markers: round, so that a robot is never a vertex seen up close.
+ *
+ * Every other layer here is a square point sprite -- the surface cells, the
+ * graph vertices, the beads along a route. A disc is the one shape that is not
+ * already spoken for, and the fleet has to be picked out of all of them.
+ */
+function discs(size, opacity) {
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const g = c.getContext("2d");
+  g.beginPath();
+  g.arc(32, 32, 26, 0, 2 * Math.PI);
+  g.fillStyle = "#fff";
+  g.fill();
+  g.lineWidth = 7;
+  g.strokeStyle = "rgba(7,11,16,0.85)";
+  g.stroke();
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.Float32BufferAttribute([], 3));
+  geom.setAttribute("color", new THREE.Float32BufferAttribute([], 3));
+  return new THREE.Points(geom, new THREE.PointsMaterial({
+    size, sizeAttenuation: true, vertexColors: true,
+    map: new THREE.CanvasTexture(c), transparent: true, alphaTest: 0.35,
+    opacity: opacity === undefined ? 1 : opacity }));
+}
+
+function setGeom(obj, pos, col) {
+  obj.geometry.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  obj.geometry.attributes.position.needsUpdate = true;
+  if (!col) return;
+  obj.geometry.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+  obj.geometry.attributes.color.needsUpdate = true;
 }
 
 function points(xyz, colours, size, colour) {
@@ -343,10 +518,26 @@ function paint() {
       const c = seen[i] ? WATCHED : (dirty[i] ? DIRTY : CLEARED);
       col[3 * i] = c[0]; col[3 * i + 1] = c[1]; col[3 * i + 2] = c[2];
     }
+    const secs = S.roster ? S.roster.stepSeconds[t] : null;
     $("#step-label").textContent =
-      `step ${t + 1} of ${S.schedule.steps.length} — ${held.length} robots`;
+      `step ${t + 1} of ${S.schedule.steps.length} — ${held.length} robots`
+      + (secs ? ` — ${fmtTime(secs)} of walking` : "");
   } else {
     $("#step-label").textContent = "";
+  }
+
+  // The one robot the reader is following: what it watches from where it
+  // stands, in its own colour, over whatever the schedule painted underneath.
+  if (v < 0 && robotMode() && selRobot >= 0) {
+    const rv = S.roster.positions[t][selRobot];
+    if (rv >= 0) {
+      const m = dset(rv), c = robotColour(selRobot);
+      for (let i = 0; i < S.nCells; i++) {
+        if (!m[i]) continue;
+        col[3 * i] = c.r * 0.92; col[3 * i + 1] = c.g * 0.92;
+        col[3 * i + 2] = c.b * 0.92;
+      }
+    }
   }
 
   G.surface.geometry.attributes.color.needsUpdate = true;
@@ -359,6 +550,308 @@ function paint() {
   });
   G.held.geometry.setAttribute("position", new THREE.Float32BufferAttribute(hp, 3));
   G.held.geometry.attributes.position.needsUpdate = true;
+
+  updateRobots();
+}
+
+/* ------------------------------------------------------------------ robots */
+
+/* A schedule step is a SET of vertices: it says which places are held and
+ * nothing about which machine holds them, so nine dots blinking on and off is
+ * all it can honestly be drawn as. `clearing/roster.py` matches a fleet across
+ * the steps -- least total travel, a robot the step does not need parking where
+ * it stands -- and ships one leg per occupied vertex with the path it walks.
+ * That is what everything below draws. The fleet is exactly the peak team, so
+ * the ids run R0..R8 on Blenheim and R0..R20 on the Bodleian and no further.
+ */
+
+function roster() { return S && S.roster ? S.roster : null; }
+function robotMode() { return !!roster() && $("#show-robots").checked; }
+function stepAt() { return parseInt($("#step").value, 10) || 0; }
+function moveOf(t, r) {
+  const m = S.moveOf && S.moveOf[t];
+  return m ? m.get(r) : undefined;
+}
+
+/* Three hues are already spoken for and a robot may not borrow any of them:
+ * amber is "watched now" and the graph edges, teal is "cleared" and the
+ * surface, mauve is "contaminated". A robot painted in one of those is a robot
+ * the reader has to look at twice -- and the selected robot's detection set is
+ * painted in its own colour, straight over that palette. So the hue circle is
+ * cut into the arcs that are left. */
+const HUE_ARCS = [[0.22, 0.44], [0.56, 0.87], [0.97, 1.05]];
+const HUE_SPAN = HUE_ARCS.reduce((a, [lo, hi]) => a + (hi - lo), 0);
+
+/** One hue per robot, walked along those arcs by the golden angle.
+ *
+ * Any fleet size comes out with neighbouring ids far apart in colour, which is
+ * what matters when R6 and R7 stand two vertices from each other. The
+ * lightness reads darker here than it looks: three.js takes these as sRGB and
+ * renders them through its working space, which lifts them by about a fifth.
+ */
+function robotColour(r) {
+  let p = ((r * 0.381966) % 1) * HUE_SPAN;
+  for (const [lo, hi] of HUE_ARCS) {
+    if (p <= hi - lo) return new THREE.Color().setHSL((lo + p) % 1, 0.95, 0.42);
+    p -= hi - lo;
+  }
+  return new THREE.Color().setHSL(HUE_ARCS[0][0], 0.95, 0.42);
+}
+
+/** The id sprites. One per robot, made once per scene and then only moved. */
+function makeLabels(n) {
+  for (let r = 0; r < n; r++) {
+    const sp = labelSprite(`R${r}`, robotColour(r));
+    sp.visible = false;
+    labels.push(sp);
+    world.add(sp);
+  }
+}
+
+function labelSprite(text, colour) {
+  const c = document.createElement("canvas");
+  const g = c.getContext("2d");
+  const font = "600 44px ui-sans-serif, system-ui, -apple-system, sans-serif";
+  g.font = font;
+  c.width = Math.ceil(g.measureText(text).width) + 28;   // resets the context
+  c.height = 64;
+  g.font = font;
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.lineWidth = 7;
+  g.strokeStyle = "rgba(7,11,16,0.9)";   // an id crossing pale stone still reads
+  g.strokeText(text, c.width / 2, 34);
+  g.fillStyle = "#" + colour.getHexString();
+  g.fillText(text, c.width / 2, 34);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: new THREE.CanvasTexture(c), transparent: true, depthTest: false }));
+  sp.renderOrder = 10;                       // ids are never hidden by geometry
+  sp.userData.aspect = c.width / c.height;
+  return sp;
+}
+
+/** The polyline of one leg, lifted to meet the vertex markers at both ends.
+ *
+ * The shipped path runs over the ground; a vertex is drawn at sensor height.
+ * Blending the two offsets along the walk is what makes a robot leave its
+ * marker and arrive at the next one without a step in the air.
+ */
+function leg(k, frm, to) {
+  if (S.legCache.has(k)) return S.legCache.get(k);
+  const a = S.robotOff[k], n = S.robotOff[k + 1] - a;
+  if (!n) {                       // the two vertices cannot reach each other
+    const empty = { pts: new Float32Array(0), cum: new Float64Array(0), n: 0, len: 0 };
+    S.legCache.set(k, empty);
+    return empty;
+  }
+  const pts = new Float32Array(n * 3);
+  const dz0 = S.nodeDraw[3 * frm + 2] - S.robotPts[3 * a + 2];
+  const dz1 = S.nodeDraw[3 * to + 2] - S.robotPts[3 * (a + n - 1) + 2];
+  for (let i = 0; i < n; i++) {
+    const u = n > 1 ? i / (n - 1) : 0;
+    pts[3 * i] = S.robotPts[3 * (a + i)];
+    pts[3 * i + 1] = S.robotPts[3 * (a + i) + 1];
+    pts[3 * i + 2] = S.robotPts[3 * (a + i) + 2] + dz0 + (dz1 - dz0) * u;
+  }
+  const cum = new Float64Array(n);
+  for (let i = 1; i < n; i++) {
+    cum[i] = cum[i - 1] + Math.hypot(pts[3 * i] - pts[3 * i - 3],
+                                     pts[3 * i + 1] - pts[3 * i - 2],
+                                     pts[3 * i + 2] - pts[3 * i - 1]);
+  }
+  const out = { pts, cum, n, len: n ? cum[n - 1] : 0 };
+  S.legCache.set(k, out);
+  return out;
+}
+
+function nodePoint(v) {
+  return [S.nodeDraw[3 * v], S.nodeDraw[3 * v + 1], S.nodeDraw[3 * v + 2]];
+}
+
+/** `g` of the way along a leg, by walked distance and not by vertex count. */
+function alongLeg(mv, g) {
+  const L = leg(mv.p, mv.f, mv.v);
+  if (L.n < 2 || !L.len) return nodePoint(mv.v);
+  const want = g * L.len;
+  let i = 1;
+  while (i < L.n - 1 && L.cum[i] < want) i++;
+  const u = (want - L.cum[i - 1]) / Math.max(L.cum[i] - L.cum[i - 1], 1e-9);
+  return [0, 1, 2].map((c) =>
+    L.pts[3 * (i - 1) + c] + (L.pts[3 * i + c] - L.pts[3 * (i - 1) + c]) * u);
+}
+
+/** Where robot `r` is at step `t`, or `f` of the way into the step after it. */
+function robotPos(r, t, f) {
+  const R = roster();
+  const at = R.positions[t][r];
+  const mv = f > 0 ? moveOf(t + 1, r) : undefined;
+  if (mv) return mv.p >= 0 ? alongLeg(mv, Math.min(f / TRANSIT, 1)) : nodePoint(mv.v);
+  return at >= 0 ? nodePoint(at) : null;
+}
+
+/** Draw the fleet. `f` is the walk into the next step, 0 while a step is held. */
+function placeRobots(f) {
+  const R = roster();
+  if (!R) return;
+  const t = stepAt();
+  const pos = [], col = [], ids = [], halo = [];
+  for (let r = 0; r < R.nRobots; r++) {
+    const p = robotPos(r, t, f);
+    if (!p) { labels[r].visible = false; continue; }
+    const c = robotColour(r);
+    const hot = r === selRobot;
+    pos.push(p[0], p[1], p[2]);
+    col.push(c.r, c.g, c.b);
+    if (hot) halo.push(p[0], p[1], p[2]);
+    ids.push(r);
+    const sp = labels[r];
+    sp.visible = true;
+    // Three heights, by id: a team crowds into a courtyard corner, and two
+    // ids at the same height there are one unreadable word.
+    sp.position.set(p[0], p[1], p[2] + S.labelSize * (1.1 + 0.75 * (r % 3)));
+    const size = S.labelSize * (hot ? 1.35 : 1);
+    sp.scale.set(size * sp.userData.aspect, size, 1);
+  }
+  S.robotIds = ids;
+  setGeom(G.robots, pos, col);
+  setGeom(G.halo, halo, halo.length ? [1, 1, 1] : []);
+}
+
+/** The legs into one step: what the team walked to take up these vertices. */
+function drawLegs(t) {
+  const R = roster();
+  const pos = [], col = [], dots = [], dotCol = [];
+  for (const mv of (R && R.moves[t]) || []) {
+    if (mv.p < 0) continue;
+    const L = leg(mv.p, mv.f, mv.v), c = robotColour(mv.r);
+    for (let i = 0; i + 1 < L.n; i++) {
+      pos.push(L.pts[3 * i], L.pts[3 * i + 1], L.pts[3 * i + 2],
+               L.pts[3 * i + 3], L.pts[3 * i + 4], L.pts[3 * i + 5]);
+      col.push(c.r, c.g, c.b, c.r, c.g, c.b);
+    }
+    const before = dots.length / 3;
+    beads(L, 1.2, dots);
+    for (let k = before; k < dots.length / 3; k++) dotCol.push(c.r, c.g, c.b);
+  }
+  setGeom(G.legs, pos, col);
+  setGeom(G.legDots, dots, dotCol);
+}
+
+/** Everything the selected robot has walked up to and including step `t`. */
+function drawTrack(r, t) {
+  const R = roster();
+  const pos = [], dots = [];
+  if (r >= 0 && R) {
+    for (let k = 0; k <= t && k < R.moves.length; k++) {
+      const mv = moveOf(k, r);
+      if (!mv || mv.p < 0) continue;
+      const L = leg(mv.p, mv.f, mv.v);
+      for (let i = 0; i + 1 < L.n; i++) {
+        pos.push(L.pts[3 * i], L.pts[3 * i + 1], L.pts[3 * i + 2],
+                 L.pts[3 * i + 3], L.pts[3 * i + 4], L.pts[3 * i + 5]);
+      }
+      beads(L, 1.5, dots);
+    }
+    const c = robotColour(r);
+    G.track.material.color.copy(c);
+    G.trackDots.material.color.copy(c);
+  }
+  setGeom(G.track, pos);
+  setGeom(G.trackDots, dots);
+}
+
+/** A polyline resampled at a fixed spacing: a one-pixel line disappears over a
+ *  dense surface once the whole site is in frame, and beads do not. */
+function beads(L, spacing, out) {
+  let carry = 0;
+  for (let i = 0; i + 1 < L.n; i++) {
+    const d = L.cum[i + 1] - L.cum[i];
+    for (let t = carry; t < d; t += spacing) {
+      const f = t / Math.max(d, 1e-9);
+      for (let c = 0; c < 3; c++) {
+        out.push(L.pts[3 * i + c] + (L.pts[3 * i + 3 + c] - L.pts[3 * i + c]) * f);
+      }
+    }
+    carry = d > 0 ? (spacing - ((d - carry) % spacing)) % spacing : carry;
+  }
+}
+
+function selectRobot(r) {
+  selRobot = r;
+  if (r >= 0) {
+    $("#vertex").value = "-1";
+    $("#show-robots").checked = true;
+  }
+  paint();
+}
+
+/** The fleet list: one row per robot, what it is doing at this step. */
+function fillFleet(t) {
+  const R = roster();
+  const box = $("#fleet");
+  box.style.display = robotMode() ? "" : "none";
+  if (!robotMode()) return;
+
+  const rows = [];
+  for (let r = 0; r < R.nRobots; r++) {
+    const at = R.positions[t][r], mv = moveOf(t, r), c = robotColour(r);
+    const idle = at < 0 || !mv;
+    const what = at < 0 ? "off site"
+      : !mv ? "parked"
+      : mv.s == null ? "no route"
+      : mv.p < 0 ? (mv.e ? "walks on" : "holds")
+      : `${mv.e ? "walks on " : ""}${mv.m.toFixed(0)} m · ${fmtTime(mv.s)}`;
+    rows.push(`<div class="robot${r === selRobot ? " sel" : ""}`
+      + `${idle ? " idle" : ""}" data-r="${r}" `
+      + `style="color:#${c.getHexString()}">`
+      + `<i style="background:#${c.getHexString()}"></i>`
+      + `<b>R${r}</b><span>${at < 0 ? "—" : "v" + at}</span>`
+      + `<span>${what}</span></div>`);
+  }
+  $("#fleet-list").innerHTML = rows.join("");
+
+  const walked = R.moves.flat().reduce((a, mv) => a + (mv.m || 0), 0);
+  const sel = selRobot >= 0
+    ? ` · R${selRobot} has walked ${
+        R.moves.slice(0, t + 1).flat()
+          .filter((mv) => mv.r === selRobot)
+          .reduce((a, mv) => a + (mv.m || 0), 0).toFixed(0)} m`
+    : "";
+  // A parked robot is standing at a vertex and does see it. The verifier
+  // credits only the vertices the step names, so what is painted for a parked
+  // robot is free sight the guarantee never used -- which is worth saying,
+  // because the picture cannot show the difference.
+  const idle = selRobot >= 0 && R.positions[t][selRobot] >= 0
+    && !moveOf(t, selRobot);
+  $("#fleet-meta").textContent =
+    `${R.nRobots} robots, R0–R${R.nRobots - 1}, on site at vertex ${R.entry}; `
+    + `${(walked / 1000).toFixed(1)} km walked in all${sel}.`
+    + (idle ? ` R${selRobot} is parked at this step: this step's guarantee `
+              + `does not count what it sees.` : "");
+}
+
+/** Show or hide everything the robot view owns. */
+function showRobots(on) {
+  G.robots.visible = on;
+  G.halo.visible = on && selRobot >= 0;
+  G.legs.visible = on;
+  G.legDots.visible = on;
+  G.track.visible = on && selRobot >= 0;
+  G.trackDots.visible = on && selRobot >= 0;
+  G.held.visible = !on;
+  if (!on) for (const sp of labels) sp.visible = false;   // placeRobots re-shows
+}
+
+function updateRobots() {
+  const on = robotMode();
+  showRobots(on);
+  fillFleet(stepAt());
+  if (!on) return;
+  placeRobots(0);
+  // Standing at a step, the legs shown are the ones that got the team here;
+  // playing, they are the ones being walked right now.
+  drawLegs(playing ? stepAt() + 1 : stepAt());
+  drawTrack(selRobot, stepAt());
 }
 
 /* ----------------------------------------------------------------- panel */
@@ -367,6 +860,9 @@ function fillPanel() {
   const s = S.stats;
   $("#stats").innerHTML = [
     ["walkable area", `${s.areaM2.toLocaleString()} m²`],
+    ["outside the boundary", S.boundary
+      ? `${s.excludedM2.toLocaleString()} m² · ${S.boundary.cuts} cuts`
+      : "—"],
     ["cells", s.cells.toLocaleString()],
     ["vertices", s.vertices],
     ["edges", `${s.edges} (${s.edgesShady} shady)`],
@@ -395,8 +891,16 @@ function fillPanel() {
   drawRoute();
 
   const pb = $("#playback");
-  if (!S.schedule) { pb.style.display = "none"; return; }
+  if (!S.schedule) {
+    pb.style.display = "none";
+    $("#fleet").style.display = "none";
+    return;
+  }
   pb.style.display = "";
+  // Data written before the roster existed still loads; the toggle is simply
+  // not offered, rather than offered and dead.
+  $("#show-robots").disabled = !S.roster;
+  $("#show-robots").parentElement.style.display = S.roster ? "" : "none";
   const m = S.schedule.metrics;
   $("#sched-meta").textContent =
     `${S.schedule.key}: ${m.steps} steps, peak ${m.team_peak} robots, ` +
@@ -491,24 +995,49 @@ function applyLayers() {
   G.shady.visible = $("#l-edges").checked && $("#l-shady").checked;
   G.nodes.visible = $("#l-nodes").checked;
   G.routes.visible = $("#l-routes").checked;
+  // A scene exported with --no-boundary has no line to draw. The toggle is
+  // hidden rather than left checked over nothing, because an empty layer that
+  // is switched on reads as a site with no boundary rather than as a scene
+  // that was cut without one.
+  const on = $("#l-boundary").checked && !!G.bound;
+  $("#l-boundary").parentElement.style.display = G.bound ? "" : "none";
+  if (G.bound) { G.bound.visible = on; G.boundPosts.visible = on; }
 }
 
 function togglePlay() {
-  if (playing) return stopPlay();
+  if (playing) {
+    stopPlay();
+    paint();
+    return;
+  }
+  playing = true;
+  phase = 0;
+  lastMs = 0;
   $("#play").textContent = "Pause";
   $("#vertex").value = "-1";
-  $("#show-sched").checked = true;
-  playing = setInterval(() => {
-    const el = $("#step");
-    el.value = (+el.value + 1) % (+el.max + 1);
-    paint();
-  }, 550);
+  if (!robotMode()) $("#show-sched").checked = true;
+  paint();
 }
 
 function stopPlay() {
-  if (playing) clearInterval(playing);
-  playing = null;
+  playing = false;
+  phase = 0;
   $("#play").textContent = "Play";
+}
+
+/** Step by `d`, wrapping. The slider, the arrow keys and playback share it. */
+function stepBy(d) {
+  if (!S || !S.schedule) return;
+  const el = $("#step");
+  const n = +el.max + 1;
+  el.value = ((+el.value + d) % n + n) % n;
+  onScrub();
+}
+
+function onScrub() {
+  $("#vertex").value = "-1";
+  if (!robotMode()) $("#show-sched").checked = true;
+  paint();
 }
 
 /* ------------------------------------------------------------- picking */
@@ -519,9 +1048,19 @@ function pick(ev) {
     ((ev.clientX - r.left) / r.width) * 2 - 1,
     -((ev.clientY - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(m, camera);
+  if (robotMode()) {
+    const who = raycaster.intersectObject(G.robots, false)[0];
+    if (who) {
+      const r = S.robotIds[who.index];
+      stopPlay();
+      selectRobot(r === selRobot ? -1 : r);
+      return;
+    }
+  }
   const hit = raycaster.intersectObject(G.nodes, false)[0];
   if (!hit) return;
   $("#vertex").value = hit.index;
+  selRobot = -1;
   stopPlay();
   paint();
 }

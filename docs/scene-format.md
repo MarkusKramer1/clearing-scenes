@@ -29,6 +29,19 @@ source:                    # where the geometry came from
   occupancy: O-carved (unobserved space blocks)
   graph_file: carved_huav20_R30_seed1
 
+boundary:                  # where the scenario stops
+  bounded: true
+  stamp: 4b19deaef44d      # hash of the drawn lines; matches E1's approval
+  approved: 2026-08-22
+  source: e1-clearing-graph configs/site_boundary.yaml, drawn by hand
+  cuts: 2                  # hand-drawn lines across the openings
+  held_line_m: 9.5         # how much of the perimeter those lines are
+  cells_dropped: 45658     # walkable cells outside it
+  walkable_dropped_m2: 1826.3
+  excluded_m2: 2012.0      # E1's figure, on its 0.4 m raster, not this 0.2 m one
+  rim_segments: 4424
+  rim_length_m: 1769.6     # the whole outline, in the npz as boundary_seg
+
 robot:
   kind: ground
   sensor_height_m: 1.0     # the sensor sits this far above the surface
@@ -43,39 +56,60 @@ target:                    # what has to be detected
 surface:
   geometry_file: geometry/christ-church.npz
   cell_size_m: 0.2
-  cells: 248972
-  area_m2: 9958.88
-  bbox_min: [-122.9, -147.12, -3.34]
-  bbox_max: [44.3, 59.48, 3.83]
+  cells: 203314
+  area_m2: 8132.56
+  bbox_min: [-102.7, -98.72, -2.63]
+  bbox_max: [21.3, 59.48, 3.83]
   max_step_m: 0.25         # two neighbouring cells may differ by this much
-  evader_edges: 964511     # 8-connected under that rule; recomputed, not stored
-  uncoverable_cells: 7310  # seen by no vertex, at any team size
-  uncoverable_area_m2: 292.4
+  evader_edges: 790583     # 8-connected under that rule; recomputed, not stored
+  uncoverable_cells: 5134  # seen by no vertex, at any team size
+  uncoverable_area_m2: 205.36
 
 graph:
-  vertices: 90
-  edges: 448
-  edges_regular: 325
-  edges_shady: 123
+  vertices: 62
+  edges: 245
+  edges_regular: 158
+  edges_shady: 87
   vertices_list:
-    - {id:   0, xyz: [-18.3, -42.52, -0.33], detection_m2: 2607.2, boundary_cells: 1616}
+    - {id:   0, xyz: [-29.3, -27.92, -0.32], detection_m2: 2652.8, boundary_cells: 1392}
     ...
   edges_list:
-    - {i:   0, j:   3, type: regular, guard_cells: 233, guard_m2: 9.32}
+    - {i:   0, j:   1, type: regular, guard_cells: 421, guard_m2: 16.84}
     ...
 
 routes:
-  reachable_pairs: 4005
+  reachable_pairs: 1891
   unreachable_pairs: 0
   speed_m_s: 1.0
-  polylines_for_graph_edges: 448   # the walked path per edge, in the npz
+  polylines_for_graph_edges: 245   # the walked path per edge, in the npz
   columns: [i, j, distance_m, time_s]
   values:
-    - [  0,   1,    43.2,    43.2]
+    - [  0,   1,    52,      52]
     ...
 ```
 
+Every count above is *inside the boundary*. The surveyed surface at Christ
+Church is 9 959 m² over 248 972 cells with 90 vertices; the two drawn lines
+take 1 826 m² and 28 vertices off it before anything else is computed, and
+nothing downstream ever sees the difference.
+
 ### What the fields mean
+
+**The boundary** is where the scenario stops. It is drawn by hand upstream in
+`e1-clearing-graph` and approved there; `stamp` is a hash over the lines that
+were drawn, so a scene here can be matched to the decision that produced it. By
+the time a scene loads, the cut has already been made — the surface, the
+vertices, the guard regions and the routes are all what survived it — and
+nothing in `clearing/` tests a cell against the line. `boundary_seg` in the npz
+is the line itself, carried for drawing and for the record.
+
+Two areas are quoted because they are measured on two grids: `walkable_dropped_m2`
+is this surface's own 0.2 m cells, and `excluded_m2` is E1's figure on its 0.4 m
+boundary raster. Use the first with anything else on this page.
+
+`cuts` counts the lines somebody drew; `rim_segments` and `rim_length_m` are the
+whole retained outline, most of which is masonry rather than a drawn line. At
+Christ Church that is 9.5 m of decision against 1 770 m of wall.
 
 **A vertex** is a sampled sensor position on the walkable surface. `xyz` is
 where the sensor is -- `sensor_height_m` above the cell the robot stands on.
@@ -107,7 +141,7 @@ the npz, for the pairs that are also edges of the graph -- `edge_route_points`,
 one polyline per edge, reachable through `Scene.route(i, j)` and drawn by the
 viewer. That is the set worth carrying: an edge of the graph is a line of sight,
 and the ground between its two ends may be a building. On Blenheim Palace, edge
-2-8 spans 31.5 m of straight line and 108 m of walking.
+3-21 spans 22.0 m of straight line and 71 m of walking.
 
 The polylines are simplified (Ramer-Douglas-Peucker at 0.12 m, below the cell
 size) so a 500-point lattice walk becomes a couple of dozen points. Simplifying
@@ -140,6 +174,8 @@ data cannot drift apart -- and it saves about 8 MB per scene.
 | `travel_component` | (n_nodes,) i32 | vertices sharing one can reach each other |
 | `edge_route_points` / `edge_route_offsets` | polylines | per graph edge, the path the robot walks |
 | `uncoverable` | (k,) i32 | cells no vertex sees |
+| `boundary_seg` | (n_seg, 2, 2) f32 | the scenario boundary, as line segments in world XY |
+| `boundary_cell_size` | scalar f32 | the raster the boundary was cut on, 0.4 m |
 | `cloud_xyz` | (m, 3) f32 | the survey cloud, decimated, for context |
 
 CSR here means the usual pair: row `i` is `values[offsets[i]:offsets[i+1]]`.

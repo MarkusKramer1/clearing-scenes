@@ -29,6 +29,49 @@ the two families are sampled independently, and `carved_huav10/15/20` carry
 byte-identical ground vertex sets. `--h-uav` therefore only picks which of the
 identical files to read from.
 
+THE SCENARIO BOUNDARY
+---------------------
+A survey is not a scenario. The Oxford Spires clouds run off down service
+avenues and out through gateways, and a search problem posed on all of it is
+posed on ground nobody was asked to clear -- and, worse, on ground an evader
+can walk in from. E1 answers that with a hand-drawn boundary per scene
+(`configs/site_boundary.yaml` there): the operator draws the lines where the
+site stops, and everything from Stage 4 on runs on the surface those lines
+retain. The graphs this script reads were built that way, so the vertices,
+the detection sets, the guard regions and the roadmap are already bounded.
+
+WHAT THIS SCRIPT HAS TO DO ABOUT IT IS NOT OPTIONAL. Every array in the graph
+npz -- `node_row`, `dset_cells`, `bnd_cells`, `guard_cells` -- is a ROW INDEX
+into the retained surface. `walkable_<variant>.npz` on the SSD is still the
+FULL one, because the boundary cuts it at read time and never rewrites it. So
+reading the graph against the full walkable file does not fail: it silently
+reads the wrong cells, and every detection set lands somewhere else on the
+site. The surface here is therefore cut with the same call the E1 stages use,
+`boundary_apply.walkable_surface`/`inside`, and the run refuses to start if
+E1's own Stage 6 result disagrees with the boundary that is approved now.
+
+The boundary line itself is exported alongside the surface, so the viewer can
+draw where the scenario stops rather than leave the cut looking like the edge
+of the data. The survey cloud is NOT cut: it is context, the boundary runs
+along and through the buildings in it, and a cloud clipped to the line would
+hide the very structure the line was drawn against.
+
+THE CUT IS E1'S, EXACTLY, INCLUDING WHERE IT IS A CELL OFF. `boundary_apply`
+decides a walkable cell by `floor(i * d_v / d_a)`, and at an exact face of the
+0.4 m boundary raster that is a floating-point coin flip -- `728 * 0.2 / 0.4`
+is 363.999999999999994 in double, so that cell is kept by the row next door.
+Across the six scenes it moves 383 cells, 0.16 to 6.72 m² per scene against
+1 280 to 11 469 m² retained. They are kept as E1 keeps them and not corrected
+here: this script's claim is that the scenario is the approved one, and a
+scenario that is nearly the approved one is worth less than one that is
+exactly it. `tests/test_boundary.py` measures the seam and bounds it to the
+line. The fix belongs in `boundary_apply.inside`, upstream, where correcting
+it would move all six stamps and rerun Stages 4-6.
+
+`--no-boundary` exports the full surveyed surface instead. It is only correct
+against a graph built the same way (E1's `--no-boundary`), and the guard below
+will say so.
+
 Usage
 -----
     python scripts/export_from_e1.py --e1-root ~/e1-clearing-graph
@@ -66,8 +109,71 @@ def e1_imports(e1_root: Path):
     src = str(e1_root / "src")
     if src not in sys.path:
         sys.path.insert(0, src)
+    from e1 import boundary_apply  # noqa: PLC0415
     from e1.traversal import _lattice_edges  # noqa: PLC0415
-    return _lattice_edges
+    return _lattice_edges, boundary_apply
+
+
+def retained(name: str, ba, result6: dict, cells, min_corner, d_v: float,
+             *, bounded: bool):
+    """Which walkable cells the approved boundary keeps, and the note about it.
+
+    Returns `(keep, block)`. `keep` is a boolean mask over the rows of the full
+    walkable surface; `block` is what goes in the YAML.
+
+    THE GUARD IS THE POINT OF THE FUNCTION. `keep` decides how the surface is
+    renumbered, and every row index in the graph npz was written against one
+    particular renumbering. `boundary_apply.check` compares the boundary E1's
+    Stage 6 recorded against the one approved now, and anything but agreement
+    stops the export -- because the failure it prevents is not a crash but a
+    scenario whose detection sets are attached to the wrong ground.
+    """
+    disagreement = ba.check(result6, name)
+    stamp = ba.stamp(name)
+
+    if not bounded:
+        if not disagreement:
+            raise SystemExit(
+                f"{name}: --no-boundary, but E1's Stage 6 ran against the "
+                f"approved boundary {stamp}. Its row indices are into the cut "
+                f"surface; exporting them against the full one would attach "
+                f"every detection set to the wrong cells. Rerun E1 Stage 6 "
+                f"with --no-boundary, or drop --no-boundary here.")
+        return np.ones(len(cells), dtype=bool), {
+            "bounded": False, "excluded_m2": 0.0,
+            "note": "the whole surveyed surface; no scenario boundary applied",
+        }
+
+    if disagreement:
+        raise SystemExit(
+            f"{name}: the graph on the SSD was {disagreement}.\n"
+            f"Rerun E1 Stages 4-6 against the approved boundary, or pass "
+            f"--no-boundary to both. Row indices into the walkable surface are "
+            f"not comparable across a boundary change, and mixing them reads "
+            f"the wrong cells without failing.")
+
+    keep = ba.inside(name, cells.astype(np.int64), min_corner, d_v)
+    if keep is None:
+        raise SystemExit(
+            f"{name}: no approved scenario boundary. E1 publishes one per "
+            f"scene under outputs/site_boundary/approved/; approve it there, "
+            f"or pass --no-boundary to export the full surveyed surface.")
+
+    rim = ba.rim_segments(name)
+    st = ba.status(name)
+    return keep, {
+        "bounded": True,
+        "stamp": stamp,
+        "source": "e1-clearing-graph configs/site_boundary.yaml, drawn by hand",
+        "approved": st.get("approved", ""),
+        "cuts": int(st.get("n_cuts", 0)),
+        "held_line_m": float(st.get("held_line_m", 0.0)),
+        "retained_m2": float(st.get("retained_m2", 0.0)),
+        "excluded_m2": float(st.get("excluded_m2", 0.0)),
+        "rim_segments": int(len(rim["seg"])) if rim else 0,
+        "rim_length_m": float(len(rim["seg"]) * rim["d_a"]) if rim else 0.0,
+        "_rim": rim,
+    }
 
 
 def evader_edges(cells, height, d_v, h_climb, lattice_edges):
@@ -236,6 +342,39 @@ def write_yaml(path: Path, scene: dict) -> None:
         add(f"  {k}: {v}")
     add("")
 
+    b = scene["boundary"]
+    add("boundary:")
+    add("  # Where the scenario stops. Drawn by hand in e1-clearing-graph")
+    add("  # (configs/site_boundary.yaml) and approved there; the surface,")
+    add("  # the vertices, the guard regions and the routes below are all")
+    add("  # what survives it. The evader cannot leave it and no robot has to")
+    add("  # watch across it: the drawn lines are held, not open frontier.")
+    if not b["bounded"]:
+        add("  bounded: false")
+        add(f"  note: {b['note']}")
+    else:
+        add(f"  bounded: true")
+        add(f"  stamp: {b['stamp']}            "
+            "# hash of the drawn lines; matches E1's approval")
+        add(f"  approved: {b['approved']}")
+        add(f"  source: {b['source']}")
+        add(f"  cuts: {b['cuts']}                  "
+            "# hand-drawn lines across the openings")
+        add(f"  held_line_m: {fmt(b['held_line_m'], 1)}          "
+            "# how much of the perimeter those lines are")
+        add(f"  cells_dropped: {b['cells_dropped']}       "
+            "# walkable cells outside it, removed before anything was indexed")
+        add(f"  walkable_dropped_m2: {fmt(b['walkable_dropped_m2'], 1)}   "
+            "# what that is in area: surveyed ground this scenario gives up")
+        add(f"  excluded_m2: {fmt(b['excluded_m2'], 1)}           "
+            "# E1's own figure, measured on its 0.4 m boundary raster rather")
+        add("                              "
+            "# than on this 0.2 m walkable surface, so the two differ slightly")
+        add(f"  rim_segments: {b['rim_segments']}")
+        add(f"  rim_length_m: {fmt(b['rim_length_m'], 1)}       "
+            "# the whole outline, in the npz as boundary_seg")
+    add("")
+
     s = scene["surface"]
     add("surface:")
     add(f"  geometry_file: {s['geometry_file']}")
@@ -304,7 +443,7 @@ def write_yaml(path: Path, scene: dict) -> None:
 
 def export_scene(name: str, e1_root: Path, data_root: Path, out: Path,
                  variant: str, h_uav: float, R: float, seed: int,
-                 cloud_points: int, lattice_edges) -> dict:
+                 cloud_points: int, lattice_edges, ba, bounded: bool) -> dict:
     derived = data_root / "derived" / name
     key = f"{variant}_huav{h_uav:g}_R{R:g}_seed{seed}"
     gpath = derived / "graphs" / f"{key}.npz"
@@ -314,14 +453,27 @@ def export_scene(name: str, e1_root: Path, data_root: Path, out: Path,
         if not p.exists():
             raise FileNotFoundError(p)
 
-    params = json.loads((e1_root / "outputs" / "scenes" / name
-                         / "stage6_result.json").read_text())["params"]
+    result6 = json.loads((e1_root / "outputs" / "scenes" / name
+                          / "stage6_result.json").read_text())
+    params = result6["params"]
     d_v = float(params["d_v"])
     h_climb = max(float(params.get("h_climb", 0.25)), float(params["h_step"]))
 
     w = np.load(wpath)
     cells, height = w["cells"], w["height"]
-    min_corner, n_cells = w["min_corner"], int(cells.shape[0])
+    min_corner = w["min_corner"]
+
+    # The scenario boundary, before anything is indexed. Cutting the surface
+    # renumbers its rows, and every row index read below -- node_row, the
+    # detection sets, the rims, the guard regions -- was written against the
+    # cut numbering.
+    keep, boundary = retained(name, ba, result6, cells, min_corner, d_v,
+                              bounded=bounded)
+    cells, height = cells[keep], height[keep]
+    n_cells = int(cells.shape[0])
+    boundary["cells_dropped"] = int((~keep).sum())
+    boundary["walkable_dropped_m2"] = boundary["cells_dropped"] * d_v * d_v
+
     xyz = np.column_stack([min_corner[0] + (cells[:, 0] + 0.5) * d_v,
                            min_corner[1] + (cells[:, 1] + 0.5) * d_v,
                            height]).astype(np.float32)
@@ -336,6 +488,25 @@ def export_scene(name: str, e1_root: Path, data_root: Path, out: Path,
     bnd_off, bnd_cells = slices(z["bnd_offsets"], z["bnd_cells"], ground)
     node_pos = z["node_pos"][ground].astype(np.float32)
     node_row = z["node_row"][ground].astype(np.int32)
+
+    # THE CHECK THAT A BOUNDARY MISMATCH CANNOT SURVIVE. `node_pos` is a world
+    # position, written by E1 beside `node_row` and not derived from it, so the
+    # two agree only if this surface is the surface the graph was built on. A
+    # graph cut differently would still index in range and still load; it would
+    # just put every vertex somewhere else on the site, and nothing downstream
+    # would notice. Verified here, once, against the cheapest possible witness.
+    if node_row.size:
+        if int(node_row.max()) >= n_cells:
+            raise ValueError(
+                f"{gpath.name}: vertex row {int(node_row.max())} is past the "
+                f"end of the {n_cells:,}-cell surface it is meant to index -- "
+                f"the graph and the surface were cut differently")
+        off = np.abs(node_pos[:, :2] - xyz[node_row][:, :2]).max()
+        if off > 0.5 * d_v:
+            raise ValueError(
+                f"{gpath.name}: vertices sit up to {off:.2f} m from the cells "
+                f"they index. The graph and the walkable surface were cut to "
+                f"different boundaries; rerun E1 Stages 4-6, or re-approve.")
 
     eij = z["edge_ij"]
     both = (fam[eij[:, 0]] == 0) & (fam[eij[:, 1]] == 0)
@@ -382,7 +553,16 @@ def export_scene(name: str, e1_root: Path, data_root: Path, out: Path,
         edge_route_offsets=route_off, edge_route_points=route_pts,
         uncoverable=uncoverable,
         cloud_xyz=cloud,
+        # The line the scenario stops at, as the faces between a retained cell
+        # and one that is not -- E1's own rendering of it, at the boundary
+        # raster's resolution rather than a smoothed polygon, so it meets the
+        # surface it was cut from instead of floating a few centimetres off it.
+        boundary_seg=(np.asarray(boundary["_rim"]["seg"], np.float32)
+                      if boundary.get("_rim") else np.zeros((0, 2, 2), np.float32)),
+        boundary_cell_size=np.float32(boundary["_rim"]["d_a"]
+                                      if boundary.get("_rim") else 0.0),
     )
+    boundary.pop("_rim", None)
 
     cell_area = d_v * d_v
     finite = np.isfinite(sec)
@@ -413,6 +593,7 @@ def export_scene(name: str, e1_root: Path, data_root: Path, out: Path,
             "radius_m": params["r_t"],
             "visibility": "all 5 rays to the target cylinder must pass",
         },
+        "boundary": boundary,
         "surface": {
             "geometry_file": f"geometry/{name}.npz",
             "cell_size_m": d_v,
@@ -450,7 +631,7 @@ def export_scene(name: str, e1_root: Path, data_root: Path, out: Path,
     }
     write_yaml(out / "scenes" / f"{name}.yaml", doc)
     return {
-        "scene": name, "title": doc["title"],
+        "scene": name, "title": doc["title"], "boundary": boundary,
         "cells": n_cells, "area_m2": round(n_cells * cell_area, 1),
         "vertices": int(ground.size), "edges": int(edge_ij.shape[0]),
         "cloud_points": int(cloud.shape[0]),
@@ -472,21 +653,32 @@ def main() -> None:
     ap.add_argument("--R", type=float, default=30.0)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--cloud-points", type=int, default=250_000)
+    ap.add_argument("--no-boundary", action="store_true",
+                    help="export the full surveyed surface. Only correct "
+                         "against graphs E1 also built unbounded.")
     a = ap.parse_args()
 
-    lattice_edges = e1_imports(a.e1_root)
+    lattice_edges, ba = e1_imports(a.e1_root)
     index = []
     for name in a.scenes:
         print(f"[export] {name}", flush=True)
         info = export_scene(name, a.e1_root, a.data_root, a.out, a.variant,
-                            a.h_uav, a.R, a.seed, a.cloud_points, lattice_edges)
+                            a.h_uav, a.R, a.seed, a.cloud_points, lattice_edges,
+                            ba, not a.no_boundary)
         index.append(info)
+        b = info["boundary"]
+        if b["bounded"]:
+            print(f"         boundary {b['stamp']}: {b['cells_dropped']:,} "
+                  f"cells outside it dropped, "
+                  f"{b['walkable_dropped_m2']:,.0f} m2 of surveyed ground",
+                  flush=True)
         print(f"         {info['vertices']} vertices, {info['edges']} edges, "
               f"{info['area_m2']:,.0f} m2; {info['route_points']:,} route points "
               f"(length error <= {info['route_length_error_m']} m)", flush=True)
 
     (a.out / "scenes" / "index.json").write_text(
-        json.dumps({"config": {"variant": a.variant, "R": a.R, "seed": a.seed},
+        json.dumps({"config": {"variant": a.variant, "R": a.R, "seed": a.seed,
+                               "bounded": not a.no_boundary},
                     "scenes": index}, indent=2) + "\n")
     print(f"[export] wrote {len(index)} scenes")
 

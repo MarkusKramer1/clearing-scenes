@@ -1,0 +1,181 @@
+# Keble College -- Kolling et al. (2010) as published
+#
+# GSST over random depth-first spanning forests of the guard graph:
+# the Barriere et al. label recursion with sliding forbidden, then the
+# tree strategy converted back to a graph strategy by stationing a
+# robot wherever a cycle edge leads into a contaminated vertex.
+# Produced by scripts/run_gsst.py.
+
+scene: keble-college
+scenario_file: ../scenes/keble-college.yaml
+trees_per_variant: 100
+seed: 1
+
+graph:
+  vertices: 24
+  edges: 84
+  edges_regular: 40
+  edges_shady: 44
+
+variants:
+  # team_* are the peak of the GRAPH strategy over the drawn forests.
+  # The paper's own output; a claim about the guard graph under vertex
+  # contamination, not about the surface.
+  - variant: naive
+    trees: 100
+    team_min: 7
+    team_mean: 10.69
+    team_sd: 2.82
+    team_max: 17
+    tree_label_min: 2
+    tree_label_at_best: 3
+    steps: 24
+    shady_in_best_tree: 15
+    cycle_edges_in_best: 61
+    graph_cleared: True
+    verified_on_cells:
+      # the same schedule, judged by clearing.verify, which is
+      # told nothing about guard regions or shadiness
+      steps: 24
+      team_peak: 7
+      team_median: 5
+      cleared: True
+      cleared_except_uncoverable: True
+      residual_cells: 0
+      residual_m2: 0.0
+      recontamination_events: 0
+      recontaminated_cells: 0
+      makespan_s: 1097.6
+      fleet: 7
+    steps_list:
+      # one line per step: the vertices held
+      - {t:   0, robots:   1, vertices: [16]}
+      - {t:   1, robots:   2, vertices: [2, 16]}
+      - {t:   2, robots:   3, vertices: [2, 10, 16]}
+      - {t:   3, robots:   4, vertices: [0, 2, 10, 16]}
+      - {t:   4, robots:   5, vertices: [0, 2, 10, 16, 19]}
+      - {t:   5, robots:   4, vertices: [0, 2, 4, 16]}
+      - {t:   6, robots:   4, vertices: [0, 2, 3, 4]}
+      - {t:   7, robots:   5, vertices: [0, 2, 3, 4, 11]}
+      - {t:   8, robots:   6, vertices: [0, 2, 3, 4, 11, 15]}
+      - {t:   9, robots:   7, vertices: [0, 2, 3, 4, 11, 15, 20]}
+      - {t:  10, robots:   7, vertices: [0, 2, 3, 4, 11, 14, 20]}
+      - {t:  11, robots:   6, vertices: [0, 2, 3, 14, 17, 20]}
+      - {t:  12, robots:   7, vertices: [0, 2, 3, 13, 14, 17, 20]}
+      - {t:  13, robots:   6, vertices: [0, 3, 9, 13, 14, 17]}
+      - {t:  14, robots:   7, vertices: [0, 3, 7, 9, 13, 14, 17]}
+      - {t:  15, robots:   2, vertices: [8, 14]}
+      - {t:  16, robots:   2, vertices: [8, 12]}
+      - {t:  17, robots:   3, vertices: [8, 12, 18]}
+      - {t:  18, robots:   4, vertices: [1, 8, 12, 18]}
+      - {t:  19, robots:   5, vertices: [1, 8, 12, 18, 22]}
+      - {t:  20, robots:   6, vertices: [1, 8, 12, 18, 22, 23]}
+      - {t:  21, robots:   7, vertices: [1, 8, 12, 18, 21, 22, 23]}
+      - {t:  22, robots:   7, vertices: [1, 6, 8, 12, 18, 21, 22]}
+      - {t:  23, robots:   2, vertices: [5, 6]}
+
+  - variant: regular
+    trees: 100
+    team_min: 6
+    team_mean: 8.21
+    team_sd: 2.1
+    team_max: 13
+    tree_label_min: 2
+    tree_label_at_best: 3
+    steps: 24
+    shady_in_best_tree: 10
+    cycle_edges_in_best: 27
+    graph_cleared: True
+    verified_on_cells:
+      # the same schedule, judged by clearing.verify, which is
+      # told nothing about guard regions or shadiness
+      steps: 24
+      team_peak: 6
+      team_median: 4
+      cleared: False
+      cleared_except_uncoverable: False
+      residual_cells: 149560
+      residual_m2: 5982.4
+      recontamination_events: 9
+      recontaminated_cells: 149562
+      makespan_s: 920.6
+      fleet: 6
+    steps_list:
+      # one line per step: the vertices held
+      - {t:   0, robots:   1, vertices: [1]}
+      - {t:   1, robots:   2, vertices: [1, 5]}
+      - {t:   2, robots:   3, vertices: [1, 5, 21]}
+      - {t:   3, robots:   4, vertices: [1, 5, 18, 21]}
+      - {t:   4, robots:   4, vertices: [1, 18, 21, 22]}
+      - {t:   5, robots:   4, vertices: [1, 12, 18, 21]}
+      - {t:   6, robots:   3, vertices: [1, 6, 21]}
+      - {t:   7, robots:   4, vertices: [1, 6, 21, 23]}
+      - {t:   8, robots:   2, vertices: [1, 8]}
+      - {t:   9, robots:   2, vertices: [8, 13]}
+      - {t:  10, robots:   3, vertices: [8, 13, 14]}
+      - {t:  11, robots:   4, vertices: [8, 13, 14, 17]}
+      - {t:  12, robots:   5, vertices: [0, 8, 13, 14, 17]}
+      - {t:  13, robots:   4, vertices: [0, 3, 8, 14]}
+      - {t:  14, robots:   4, vertices: [0, 3, 14, 20]}
+      - {t:  15, robots:   5, vertices: [0, 3, 4, 14, 20]}
+      - {t:  16, robots:   6, vertices: [0, 3, 4, 11, 14, 20]}
+      - {t:  17, robots:   5, vertices: [2, 3, 4, 14, 20]}
+      - {t:  18, robots:   6, vertices: [2, 3, 4, 14, 19, 20]}
+      - {t:  19, robots:   6, vertices: [2, 3, 4, 10, 14, 20]}
+      - {t:  20, robots:   6, vertices: [2, 3, 4, 14, 15, 20]}
+      - {t:  21, robots:   5, vertices: [2, 3, 14, 16, 20]}
+      - {t:  22, robots:   2, vertices: [3, 9]}
+      - {t:  23, robots:   2, vertices: [7, 9]}
+
+  - variant: regular_biased
+    trees: 100
+    team_min: 5
+    team_mean: 8.82
+    team_sd: 2.36
+    team_max: 14
+    tree_label_min: 3
+    tree_label_at_best: 3
+    steps: 24
+    shady_in_best_tree: 9
+    cycle_edges_in_best: 26
+    graph_cleared: True
+    verified_on_cells:
+      # the same schedule, judged by clearing.verify, which is
+      # told nothing about guard regions or shadiness
+      steps: 24
+      team_peak: 5
+      team_median: 4
+      cleared: False
+      cleared_except_uncoverable: False
+      residual_cells: 111231
+      residual_m2: 4449.24
+      recontamination_events: 5
+      recontaminated_cells: 111311
+      makespan_s: 995.5
+      fleet: 5
+    steps_list:
+      # one line per step: the vertices held
+      - {t:   0, robots:   1, vertices: [7]}
+      - {t:   1, robots:   2, vertices: [7, 9]}
+      - {t:   2, robots:   2, vertices: [0, 9]}
+      - {t:   3, robots:   3, vertices: [0, 9, 14]}
+      - {t:   4, robots:   4, vertices: [0, 2, 9, 14]}
+      - {t:   5, robots:   5, vertices: [0, 2, 9, 14, 20]}
+      - {t:   6, robots:   5, vertices: [0, 2, 3, 9, 14]}
+      - {t:   7, robots:   5, vertices: [0, 2, 3, 11, 14]}
+      - {t:   8, robots:   5, vertices: [0, 2, 3, 14, 17]}
+      - {t:   9, robots:   5, vertices: [0, 2, 3, 13, 14]}
+      - {t:  10, robots:   3, vertices: [3, 4, 13]}
+      - {t:  11, robots:   4, vertices: [3, 4, 10, 13]}
+      - {t:  12, robots:   4, vertices: [3, 4, 13, 16]}
+      - {t:  13, robots:   4, vertices: [3, 4, 13, 19]}
+      - {t:  14, robots:   4, vertices: [3, 4, 13, 15]}
+      - {t:  15, robots:   2, vertices: [3, 8]}
+      - {t:  16, robots:   2, vertices: [8, 23]}
+      - {t:  17, robots:   3, vertices: [8, 18, 23]}
+      - {t:  18, robots:   4, vertices: [8, 18, 22, 23]}
+      - {t:  19, robots:   5, vertices: [8, 12, 18, 22, 23]}
+      - {t:  20, robots:   5, vertices: [1, 8, 12, 18, 22]}
+      - {t:  21, robots:   4, vertices: [1, 6, 8, 22]}
+      - {t:  22, robots:   4, vertices: [1, 8, 21, 22]}
+      - {t:  23, robots:   2, vertices: [5, 21]}

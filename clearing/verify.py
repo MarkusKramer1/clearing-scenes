@@ -72,6 +72,7 @@ class Result:
     team: list[int] = field(default_factory=list)
     recontaminated: list[int] = field(default_factory=list)
     makespan_s: float = 0.0
+    fleet: int = 0
 
     @property
     def cleared(self) -> bool:
@@ -103,6 +104,7 @@ class Result:
             "recontamination_events": self.recontamination_events,
             "recontaminated_cells": int(sum(self.recontaminated)),
             "makespan_s": round(self.makespan_s, 1),
+            "fleet": self.fleet,
         }
 
 
@@ -156,7 +158,13 @@ def propagate(scene: Scene, schedule: Schedule, verbose: bool = False) -> Result
             print(f"    step {t + 1}: team {len(step)}, "
                   f"contaminated {int(C.sum()):,}", flush=True)
     res.residual = C
-    res.makespan_s = makespan(scene, schedule)
+    # one matching, used twice: how long the walking takes and how many
+    # distinct machines do it
+    from .roster import assign      # local: roster.py imports Schedule from here
+
+    team = assign(scene, schedule)
+    res.makespan_s = team.makespan_s
+    res.fleet = team.n_robots
     return res
 
 
@@ -168,47 +176,34 @@ def propagate(scene: Scene, schedule: Schedule, verbose: bool = False) -> Result
 def makespan(scene: Scene, schedule: Schedule) -> float:
     """Wall-clock time of the schedule, from the travel times in the YAML.
 
-    Robots already on site are matched to the vertices of the next step by
-    minimum total travel (`scipy.optimize.linear_sum_assignment`); a robot that
-    keeps its vertex travels nothing. When a step needs more robots than are on
-    site, the extra ones walk on from the entry point -- the first vertex of the
-    first step -- which is what deploying a team onto a site looks like and what
-    keeps a schedule whose team only grows from costing nothing at all. A step
-    takes as long as its slowest robot.
+    One line, because the matching that produces it is the same matching that
+    gives every robot an identity, and two implementations of it would be two
+    schedules: `clearing.roster.assign` puts a fleet on the schedule -- robots
+    matched to each step's vertices by minimum total travel, a robot that keeps
+    its vertex travelling nothing, a robot the step does not need parking where
+    it stands, and a fresh one walking on at the entry point only when the team
+    grows past the fleet. A step takes as long as its slowest robot.
 
     This is the schedule's SECONDARY cost. It does not enter the guarantee at
     all: the evader is arbitrarily fast, so whether the scene is cleared is a
     combinatorial statement about the detection sets and carries no time.
     """
-    from scipy.optimize import linear_sum_assignment
+    from .roster import assign      # local: roster.py imports Schedule from here
 
-    if not schedule.steps:
-        return 0.0
-    T = np.asarray(scene.travel_seconds, dtype=float)
-    BIG = 1e9
-    entry = int(schedule.steps[0][0])       # where the team walks on to the site
+    return assign(scene, schedule).makespan_s
 
-    def cost_to(v: int, frm: int | None) -> float:
-        c = T[entry if frm is None else frm, v]
-        return BIG if not np.isfinite(c) else float(c)
 
-    total, held = 0.0, []
-    for step in schedule.steps:
-        want = list(step)
-        # Robots already on site are matched to this step's vertices by least
-        # total travel; whatever is left over is a robot walking on to the site
-        # at `entry`. A robot that keeps its vertex travels nothing.
-        n, m = len(held), len(want)
-        size = max(n, m)
-        cost = np.zeros((size, size))
-        for j, v in enumerate(want):
-            for i in range(size):
-                cost[i, j] = cost_to(v, held[i] if i < n else None)
-        r, c = linear_sum_assignment(cost)
-        moved = [cost[i, j] for i, j in zip(r, c) if j < m and cost[i, j] < BIG]
-        total += max(moved) if moved else 0.0
-        held = want
-    return float(total)
+def fleet(scene: Scene, schedule: Schedule) -> int:
+    """How many distinct robots the schedule needs, over the whole run.
+
+    Equal to `team_peak` by construction -- see `clearing.roster.assign`, which
+    adds a robot only when a step wants one the fleet has not got. It is
+    reported anyway, because the two numbers being equal is precisely the claim
+    the robot view makes and a silent regression in it would be invisible.
+    """
+    from .roster import assign
+
+    return assign(scene, schedule).n_robots
 
 
 def all_at_once(scene: Scene) -> Schedule:

@@ -244,6 +244,18 @@ def draw_scene(scene, cam: Camera, w: int, h: int, cloud_stride: int = 1,
     f.points(s, cam, ramp(t, SURFACE), fade=(far * 0.3, far * 1.4),
              size_m=scene.cell_size)
 
+    # the scenario boundary, under the graph: the site stops here, and the
+    # surface above stops with it. Two rails at the foot and the top of a low
+    # fence -- see `Scene.boundary_fence` -- in the blue the viewer uses, which
+    # is not the amber of the graph for the reason the viewer gives.
+    if len(scene.boundary_seg):
+        seg = np.asarray(scene.boundary_seg, np.float64)
+        z = np.full((len(seg), 1), 0.0)
+        for zc in scene.boundary_fence:
+            f.lines(np.column_stack([seg[:, 0], z + zc]),
+                    np.column_stack([seg[:, 1], z + zc]),
+                    cam, (143, 212, 255), radius=0)
+
     lift = np.array([0.0, 0.0, 0.6])
     a = scene.node_xyz[scene.edge_ij[:, 0]] + lift
     b = scene.node_xyz[scene.edge_ij[:, 1]] + lift

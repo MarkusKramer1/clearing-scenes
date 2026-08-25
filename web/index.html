@@ -35,6 +35,7 @@
     <label><input type="checkbox" id="l-shady" checked> &nbsp;&nbsp;&mdash; incl. shady</label>
     <label><input type="checkbox" id="l-nodes" checked> Vertices</label>
     <label><input type="checkbox" id="l-routes"> Robot routes (all)</label>
+    <label><input type="checkbox" id="l-boundary" checked> Scenario boundary</label>
   </fieldset>
 
   <fieldset>
@@ -67,6 +68,7 @@
     <legend>Clearing schedule</legend>
     <div id="sched-meta" class="hint"></div>
     <label><input type="checkbox" id="show-sched"> Paint the schedule state</label>
+    <label><input type="checkbox" id="show-robots"> Show the robots, with their ids</label>
     <input type="range" id="step" min="0" max="0" value="0">
     <div class="row">
       <button id="play">Play</button>
@@ -76,7 +78,20 @@
       <span class="key k-clear"></span> cleared
       <span class="key k-dirty"></span> contaminated
       <span class="key k-seen"></span> watched now
+      &middot; <kbd>&larr;</kbd><kbd>&rarr;</kbd> step
     </p>
+  </fieldset>
+
+  <fieldset id="fleet" style="display:none">
+    <legend>Fleet</legend>
+    <div id="fleet-meta" class="hint"></div>
+    <div id="fleet-list"></div>
+    <p class="hint">Click a robot &mdash; in the list or in the view &mdash; for
+      the surface it watches from where it stands and the ground it has walked.
+      Playing walks the team along the paths it really takes between two steps.</p>
+    <p class="hint">A step is instantaneous in the model: a robot in transit
+      watches nothing, and the guarantee is about the vertices a step holds, not
+      about the walking between them.</p>
   </fieldset>
 
   <p class="foot">

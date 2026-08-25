@@ -1,5 +1,12 @@
 # What the baseline implements, and where it departs
 
+> **This is not the 2010 paper's planner.** It uses the GRAPH-CLEAR machinery
+> that the 2010 paper cites as the alternative it does *not* use, and it plans
+> against a cell frontier the paper never computes. The paper's own strategy
+> layer — the no-sliding Barrière label and GSST over random spanning forests —
+> is implemented in `clearing/gsst.py` and written up in
+> [docs/gsst.md](gsst.md), including what it does and does not clear.
+
 The reference is Kolling, Kleiner, Lewis & Sycara, *Pursuit-Evasion in 2.5D
 Based on Team-Visibility*, IROS 2010, which puts guaranteed clearing on real
 terrain, and the GRAPH-CLEAR machinery it clears its graph with: Kolling &
@@ -59,7 +66,7 @@ Here `rho = w = 1`: one robot sweeps a vertex, one robot holds a guard region.
 Two things make this a bound rather than an answer:
 
 * **Edges outside the spanning tree are charged to both endpoints.** A real
-  guard graph is dense -- Christ Church has 448 edges over 90 vertices -- so
+  guard graph is dense -- Christ Church has 245 edges over 62 vertices -- so
   most edges are outside any tree, and this term dominates.
 * **It charges every blocked edge separately.** It cannot see that one robot
   standing at `p_j` holds every guard region inside `D(p_j)` at once.
@@ -86,9 +93,38 @@ frontier ran past it four steps ago is not paid for.
   the most new area instead sends the region jumping across the site, leaving
   several disconnected patches open at once with a perimeter each.
 
-On the six shipped scenes the schedule needs between two fifths and seven
-tenths of what the label says -- 9 robots against a label of 24 at Blenheim,
-21 against 30 at the Bodleian.
+On the six shipped scenes the schedule needs between two fifths and three
+quarters of what the label says -- 8 robots against a label of 18 at Blenheim,
+22 against 29 at the Bodleian.
+
+### The fleet, and what the walking costs
+
+A schedule is a sequence of sets, and a set has no memory: `{3, 9, 41}` followed
+by `{3, 9, 44}` does not say whether the robot at 41 walked to 44 or whether the
+one at 9 did. `clearing/roster.py` supplies the missing half. Robots on site --
+working or parked -- are the rows of a cost matrix and the step's vertices its
+columns; `linear_sum_assignment` matches them by least total travel; a robot
+that keeps its vertex travels nothing, one the step has no work for parks where
+it stands, and a fresh one walks on at the entry point only when the team grows
+past the fleet. A row is added only against a column that needs it, so the fleet
+is exactly the peak team and `fleet == team_peak` is checked on every run.
+
+Two consequences are worth naming rather than leaving to be discovered.
+
+* A parked robot is standing at a vertex and does see `D(v)`. The verifier
+  credits only the vertices a step names, so that sight is free and uncounted:
+  the guarantee errs in the safe direction, never against it.
+* The makespan -- a sum of per-step maxima -- is read off this matching, and the
+  matching minimises the fleet's TOTAL travel. Those are different objectives. A
+  matching that walks less in total can walk further in the one step that sets
+  the clock, and on Christ Church it does. Per-step minimax is a bottleneck
+  assignment and a different claim about the team; it is not what is computed.
+
+None of it enters the guarantee. The evader is arbitrarily fast, so whether the
+scene is cleared is a combinatorial statement about detection sets that carries
+no time at all -- steps are instantaneous, and a robot in transit watches
+nothing. The fleet is what a schedule COSTS and what it LOOKS LIKE in the
+viewer, never what makes it correct.
 
 ## The tolerance, stated plainly
 

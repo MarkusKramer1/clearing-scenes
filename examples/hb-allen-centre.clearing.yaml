@@ -14,101 +14,98 @@ graph_clear_label:
   # An upper bound in a model that charges every edge separately; the
   # schedules below cover the frontier with a set cover over vertices
   # instead, and need fewer.
-  robots: 15
-  root_vertex: 0
-  tree_edges: 20
-  non_tree_edges: 74
+  robots: 14
+  root_vertex: 2
+  tree_edges: 19
+  non_tree_edges: 65
   forest_components: 1
 
 tolerance:
   # Cells no vertex sees. Small connected fragments of it are taken
   # out of the evader space (see clearing.scene.Scene.excluded); the
   # rest stays in and shows up as residual.
-  uncoverable_m2: 61.8
-  excluded_as_specks_m2: 57.6
+  uncoverable_m2: 64.68
+  excluded_as_specks_m2: 60.44
   speck_max_area_m2: 4
 
 runs:
   - key: kolling
     name: kolling/kolling
-    steps: 15
+    steps: 13
     team_peak: 10
     team_median: 6
     cleared: False
     cleared_except_uncoverable: True
-    residual_cells: 105
-    residual_m2: 4.2
+    residual_cells: 106
+    residual_m2: 4.24
     recontamination_events: 0
     recontaminated_cells: 0
-    makespan_s: 429.1
+    makespan_s: 516.0
+    fleet: 10
     order: kolling
     steps_with_an_open_frontier: 0
     frontier_cells_left_open: 0
     steps_list:
       # one line per step: the vertices held
-      - {t:   0, robots:   1, vertices: [0]}
-      - {t:   1, robots:   2, vertices: [0, 9]}
-      - {t:   2, robots:   3, vertices: [0, 9, 13]}
-      - {t:   3, robots:   5, vertices: [0, 5, 9, 13, 17]}
-      - {t:   4, robots:   6, vertices: [0, 2, 5, 9, 13, 17]}
-      - {t:   5, robots:   6, vertices: [0, 5, 9, 13, 17, 18]}
-      - {t:   6, robots:   6, vertices: [0, 5, 9, 11, 13, 17]}
-      - {t:   7, robots:   7, vertices: [0, 5, 7, 9, 10, 11, 17]}
-      - {t:   8, robots:   8, vertices: [0, 5, 7, 10, 11, 15, 17, 19]}
-      - {t:   9, robots:   5, vertices: [0, 4, 7, 11, 15]}
-      - {t:  10, robots:   6, vertices: [0, 4, 7, 11, 15, 20]}
-      - {t:  11, robots:   7, vertices: [0, 1, 4, 6, 7, 11, 20]}
-      - {t:  12, robots:  10, vertices: [0, 1, 4, 6, 7, 8, 11, 12, 14, 20]}
-      - {t:  13, robots:   6, vertices: [0, 3, 4, 7, 14, 20]}
-      - {t:  14, robots:   6, vertices: [0, 4, 7, 14, 16, 20]}
+      - {t:   0, robots:   1, vertices: [2]}
+      - {t:   1, robots:   1, vertices: [8]}
+      - {t:   2, robots:   2, vertices: [8, 9]}
+      - {t:   3, robots:   3, vertices: [8, 9, 11]}
+      - {t:   4, robots:   4, vertices: [8, 9, 11, 16]}
+      - {t:   5, robots:   5, vertices: [4, 6, 8, 9, 13]}
+      - {t:   6, robots:   6, vertices: [0, 3, 6, 8, 9, 13]}
+      - {t:   7, robots:   6, vertices: [0, 3, 6, 8, 10, 18]}
+      - {t:   8, robots:   7, vertices: [0, 3, 6, 8, 10, 12, 18]}
+      - {t:   9, robots:   8, vertices: [0, 3, 6, 8, 10, 12, 17, 18]}
+      - {t:  10, robots:   8, vertices: [0, 1, 3, 6, 8, 10, 14, 18]}
+      - {t:  11, robots:  10, vertices: [0, 1, 3, 5, 6, 7, 10, 14, 18, 19]}
+      - {t:  12, robots:   6, vertices: [0, 3, 6, 10, 15, 18]}
 
   - key: sweep
     name: kolling/sweep
-    steps: 17
-    team_peak: 10
+    steps: 13
+    team_peak: 12
     team_median: 7
     cleared: False
     cleared_except_uncoverable: True
-    residual_cells: 105
-    residual_m2: 4.2
+    residual_cells: 106
+    residual_m2: 4.24
     recontamination_events: 0
     recontaminated_cells: 0
-    makespan_s: 412.6
+    makespan_s: 354.8
+    fleet: 12
     order: sweep
     steps_with_an_open_frontier: 0
     frontier_cells_left_open: 0
     steps_list:
       # one line per step: the vertices held
-      - {t:   0, robots:   1, vertices: [20]}
-      - {t:   1, robots:   2, vertices: [4, 20]}
-      - {t:   2, robots:   4, vertices: [0, 4, 14, 20]}
-      - {t:   3, robots:   5, vertices: [0, 4, 7, 14, 20]}
-      - {t:   4, robots:   6, vertices: [0, 4, 7, 14, 15, 20]}
-      - {t:   5, robots:   7, vertices: [0, 4, 7, 8, 14, 15, 20]}
-      - {t:   6, robots:   8, vertices: [0, 1, 4, 6, 7, 8, 14, 20]}
-      - {t:   7, robots:   9, vertices: [0, 1, 4, 6, 7, 9, 12, 14, 20]}
-      - {t:   8, robots:   8, vertices: [0, 1, 4, 7, 9, 13, 14, 20]}
-      - {t:   9, robots:   8, vertices: [0, 1, 4, 5, 7, 13, 14, 20]}
-      - {t:  10, robots:   8, vertices: [0, 1, 4, 7, 13, 14, 19, 20]}
-      - {t:  11, robots:  10, vertices: [0, 1, 4, 7, 10, 13, 14, 17, 19, 20]}
-      - {t:  12, robots:   8, vertices: [0, 1, 4, 7, 11, 14, 17, 20]}
-      - {t:  13, robots:   7, vertices: [0, 3, 4, 7, 14, 17, 20]}
-      - {t:  14, robots:   7, vertices: [0, 4, 7, 14, 16, 17, 20]}
-      - {t:  15, robots:   7, vertices: [0, 2, 4, 7, 14, 17, 20]}
-      - {t:  16, robots:   6, vertices: [0, 4, 7, 14, 18, 20]}
+      - {t:   0, robots:   1, vertices: [12]}
+      - {t:   1, robots:   2, vertices: [6, 12]}
+      - {t:   2, robots:   4, vertices: [0, 6, 12, 18]}
+      - {t:   3, robots:   5, vertices: [0, 6, 10, 12, 18]}
+      - {t:   4, robots:   6, vertices: [0, 6, 10, 12, 17, 18]}
+      - {t:   5, robots:   6, vertices: [0, 3, 6, 10, 14, 18]}
+      - {t:   6, robots:   7, vertices: [0, 3, 6, 7, 10, 14, 18]}
+      - {t:   7, robots:   8, vertices: [0, 1, 3, 6, 10, 13, 14, 18]}
+      - {t:   8, robots:   9, vertices: [0, 1, 3, 4, 6, 10, 13, 14, 18]}
+      - {t:   9, robots:  10, vertices: [0, 1, 3, 4, 6, 10, 13, 14, 16, 18]}
+      - {t:  10, robots:  12, vertices: [0, 1, 3, 4, 6, 9, 10, 11, 13, 16, 18, 19]}
+      - {t:  11, robots:   9, vertices: [0, 1, 3, 6, 8, 9, 10, 15, 18]}
+      - {t:  12, robots:   7, vertices: [0, 2, 3, 5, 6, 10, 18]}
 
   - key: all
     name: all vertices at once
     steps: 1
-    team_peak: 21
-    team_median: 21
+    team_peak: 20
+    team_median: 20
     cleared: False
     cleared_except_uncoverable: True
-    residual_cells: 105
-    residual_m2: 4.2
+    residual_cells: 106
+    residual_m2: 4.24
     recontamination_events: 0
     recontaminated_cells: 0
-    makespan_s: 70.6
+    makespan_s: 58.3
+    fleet: 20
     steps_list:
       # one line per step: the vertices held
-      - {t:   0, robots:  21, vertices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]}
+      - {t:   0, robots:  20, vertices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]}
