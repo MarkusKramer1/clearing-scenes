@@ -221,11 +221,51 @@ has its boundary watched by the others. A sampler carrying the extra constraint
 > for every vertex `i`, `dD(i)` must be covered by `∪ D(j)` over `j ≠ i`
 
 would make the guard graph mean what the clearing argument assumes it means,
-and the 2010 machinery would then be sound on it unchanged. The median shortfall
-is **8% of a rim**, so this is plausibly a small number of extra positions
-rather than a redesign — but it is measured here as a shortfall, not as a
-count of the vertices that would fix it, and that count is the thing to
-establish before believing the repair is cheap.
+and the 2010 machinery would then be sound on it unchanged.
+
+**Implemented and measured** — `e1-clearing-graph`, `e1/rim_closure.py` and
+`scripts/run_rim_closure.py`: add vertices drawn from the open rim itself
+(a rim cell nobody else sees is walkable, and a sensor standing on it sees it),
+recompute the guard graph, re-run GSST, verify on cells.
+
+| scene | vertices | team, GSST regular | | cell planner | cleared on cells |
+|---|--:|--:|--:|--:|:--|
+| | before → after | before | after | | before → after |
+| hb-allen-centre | 20 → 140 | 7 | **62** | 10 | 940 m² left → **0.0 m²** |
+| keble-college | 23 → 143 | 5 | **33** | 5 | 5 982 m² left → **0.0 m²** |
+| observatory-quarter | 39 → 283 | 12 | **75** | 13 | 2 702 m² left → **0.0 m²** |
+
+**The repair works.** On every scene tried, the published method goes from
+leaving most of the site contaminated to clearing it outright — residual
+0.0 m², all three cycle-edge variants, under the unchanged cell propagator.
+The 2010 machinery is untouched; only the vertex set changed.
+
+**And it is not affordable.** It costs **5–7× the vertices** and **6–9× the
+team**, against a cell-frontier planner that clears the same scenes with 5–13
+robots. The mechanism is the paper's own second finding, arriving from a new
+direction: more vertices make the guard graph denser — hb-allen-centre goes
+from 84 edges to 4 261 — and a graph strategy's cost is driven by the number
+of cycle edges it must hold, not by how much each robot sees. **Repairing the
+sampling so the abstraction becomes sound makes the instance the abstraction
+is expensive on.**
+
+Two honest qualifications:
+
+* **The fixpoint does not close.** Each added vertex brings its own rim. Round
+  one is decisive — Christ Church goes from 2 987 open rim cells to 318 for
+  100 vertices — and then it stalls: eleven further rounds and 290 more
+  vertices only reach 200. Runs stop at a 12-round budget with 60–203 cells
+  still open on a third to a half of the vertices. **They cleared anyway**,
+  because what is left is 2.4–8.1 m² spread over many rims, at or below the
+  `A_min` tolerance the project already applies. So full rim closure was
+  sufficient-by-a-margin, not necessary, and the vertex counts above are an
+  *upper* bound on what a smarter repair would need.
+* **The baseline differs slightly.** This starts from Stage 5's raw ground
+  sample; the Stage 6 graph the "before" column quotes has
+  `repair_joint_residual` applied on top, which is why Keble reads 23 here and
+  24 there, and Christ Church 57 against 62. The repaired graph therefore
+  starts from *fewer* vertices than its own baseline — the result is not
+  flattered by the difference.
 
 ### 3. Hold the frontier of the cleared *region*, not the rims of its parts
 
@@ -250,12 +290,13 @@ why the cell planner clears Christ Church with 12 robots where holding every
 rim would need 62.
 
 <callout>
-The three repairs are not alternatives of equal standing. (1) is sound and
-expensive; (3) is what this project already does and is cheap; (2) is the only
-one that would leave the 2010 method itself intact, and it is the one nobody
-has costed. It is <b>A5 — Overlap-enforcing sampling</b> in the Approaches
-database, still "Not implemented", and this measurement is the justification
-that row was missing.
+<b>All three are now measured, and they agree on the shape of the answer.</b>
+(1) never lift: sound, costs the whole vertex set. (2) close the rims: sound,
+clears, costs 6–9× the team. (3) hold the region frontier: clears at 5–13
+robots, and is what this project already does. The 2010 formulation can be
+made correct on this geometry in two different ways, and both of them cost
+roughly an order of magnitude — which is the argument for (3) stated as a
+measurement rather than as a preference.
 </callout>
 
 ---
