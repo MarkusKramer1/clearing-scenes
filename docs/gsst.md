@@ -154,6 +154,15 @@ the second column is the one that settles it: occupying *every* neighbour of a
 vertex simultaneously still leaves a gap, on **all 293 vertices of all six
 sites**. Not one rim in the corpus is closed by the graph.
 
+And this is exactly where the tree strategy dies. `dD(p_i)` is by definition a
+subset of `D(p_i)`, so **a robot standing at `i` watches the whole of its own
+rim** — while it is there, `D(p_i)` cannot be re-entered at all. The gap opens
+the moment it leaves, which is precisely what a tree strategy does: `clear(v)`
+returns with no robot left anywhere in the subtree, on the argument that the
+parent edge is the only way back in. On the graph that argument is sound. On
+the surface the vertex was holding a rim that its neighbours cannot between
+them close, and nobody is holding it now.
+
 So the guard graph records **who can watch a piece of a boundary**, never
 **whether the boundary is closed**. A strategy that discharges every edge
 obligation has still left a hole in every detection set it cleared, and an
