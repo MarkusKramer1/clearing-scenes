@@ -139,20 +139,28 @@ watch **some** of the rim of `D(p_i)`. Every graph-level clearing argument then
 treats *"i is clear and a neighbour is occupied"* as enough to keep it clear.
 So: how much of the rim is *some*?
 
-| scene | n | best single neighbour (median) | all neighbours at once (median) | rims fully covered |
-|---|--:|--:|--:|--:|
-| blenheim-palace | 36 | 0.63 | 0.94 | 0/36 |
-| bodleian-library | 112 | 0.51 | 0.95 | 0/112 |
-| christ-church | 62 | 0.54 | 0.85 | 0/62 |
-| hb-allen-centre | 20 | 0.63 | 0.86 | 0/20 |
-| keble-college | 24 | 0.77 | 0.93 | 0/24 |
-| observatory-quarter | 39 | 0.57 | 0.88 | 0/39 |
-| **all** | **293** | **0.54** | **0.92** | **0/293** |
+| scene | n | best neighbour (median) | all neighbours at once | complete | **every vertex at once** | complete |
+|---|--:|--:|--:|--:|--:|--:|
+| blenheim-palace | 36 | 0.63 | 0.94 | 0/36 | **1.00** | 36/36 |
+| bodleian-library | 112 | 0.51 | 0.95 | 0/112 | **1.00** | 112/112 |
+| christ-church | 62 | 0.54 | 0.85 | 0/62 | **1.00** | 62/62 |
+| hb-allen-centre | 20 | 0.63 | 0.86 | 0/20 | **1.00** | 20/20 |
+| keble-college | 24 | 0.77 | 0.93 | 0/24 | **1.00** | 24/24 |
+| observatory-quarter | 39 | 0.57 | 0.88 | 0/39 | **1.00** | 39/39 |
+| **all** | **293** | **0.54** | **0.92** | **0/293** | **1.00** | **293/293** |
 
-The median neighbour watches **54%** of the rim it is supposed to guard. And
-the second column is the one that settles it: occupying *every* neighbour of a
-vertex simultaneously still leaves a gap, on **all 293 vertices of all six
-sites**. Not one rim in the corpus is closed by the graph.
+The median neighbour watches **54%** of the rim it is supposed to guard, and
+occupying *every* neighbour of a vertex simultaneously **still** leaves a gap —
+on all 293 vertices of all six sites. Not one rim in the corpus is closed by
+the graph.
+
+**The last column is the control, and it decides who is to blame.** Every one
+of those 293 rims *is* closed by the vertex set — median 1.00, minimum 1.00,
+293 of 293 complete. So the sampling is sound and there is nothing wrong with
+where the vertices are. What fails is the **edge relation**: a rim needs
+several watchers at once, an edge names them one at a time, and no amount of
+discharging edge obligations assembles the set. A set cover over vertices can
+hold a boundary that no set of edges describes.
 
 And this is exactly where the tree strategy dies. `dD(p_i)` is by definition a
 subset of `D(p_i)`, so **a robot standing at `i` watches the whole of its own
@@ -166,10 +174,12 @@ them close, and nobody is holding it now.
 So the guard graph records **who can watch a piece of a boundary**, never
 **whether the boundary is closed**. A strategy that discharges every edge
 obligation has still left a hole in every detection set it cleared, and an
-arbitrarily fast evader needs one hole. The gap is not a tuning failure of
-GSST — no strategy over this vertex set can close a rim the vertex set does not
-cover, which is exactly what `verify.all_at_once` would show if the rim were
-the thing it measured.
+arbitrarily fast evader needs one hole.
+
+The gap is therefore not a tuning failure of GSST, and it is not a sampling
+failure either. It is the abstraction: the graph is a faithful record of *who
+can see part of what*, and clearing needs *what it takes to close a boundary*.
+Those are different questions, and the second one is a set cover.
 
 This is the structural reason `clearing/kolling.py` covers the **cell**
 frontier with a set cover over vertices instead of discharging edges: a set
