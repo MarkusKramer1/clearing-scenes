@@ -228,44 +228,53 @@ and the 2010 machinery would then be sound on it unchanged.
 (a rim cell nobody else sees is walkable, and a sensor standing on it sees it),
 recompute the guard graph, re-run GSST, verify on cells.
 
-| scene | vertices | team, GSST regular | | cell planner | cleared on cells |
+| scene | vertices | edges | team, GSST regular | cell planner | cleared on cells |
 |---|--:|--:|--:|--:|:--|
-| | before → after | before | after | | before → after |
-| hb-allen-centre | 20 → 140 | 7 | **62** | 10 | 940 m² left → **0.0 m²** |
-| keble-college | 23 → 143 | 5 | **33** | 5 | 5 982 m² left → **0.0 m²** |
-| observatory-quarter | 39 → 283 | 12 | **75** | 13 | 2 702 m² left → **0.0 m²** |
+| | before → after | before → after | before → after | | before → after |
+| hb-allen-centre | 20 → 140 | 84 → 4 261 | 7 → **62** | 10 | 940 m² → **0.0** |
+| keble-college | 23 → 143 | 84 → 2 946 | 5 → **33** | 5 | 5 982 m² → **0.0** |
+| observatory-quarter | 39 → 283 | 203 → 8 983 | 12 → **75** | 13 | 2 702 m² → **0.0** |
+| christ-church | 57 → 447 | 245 → 11 216 | 8 → **67** | 12 | 7 692 m² → **0.0** |
+| blenheim-palace | 36 → 227 | 167 → 5 029 | 9 → **54** | 8 | 8 258 m² → **0.0** |
+| bodleian-library | 112 → 830 | 808 → 38 254 | 15 → **146** | 22 | 10 578 m² → **0.0** |
 
-**The repair works.** On every scene tried, the published method goes from
-leaving most of the site contaminated to clearing it outright — residual
-0.0 m², all three cycle-edge variants, under the unchanged cell propagator.
-The 2010 machinery is untouched; only the vertex set changed.
+**The repair works, on all six scenes.** The published method goes from leaving
+most of the site contaminated to clearing it outright — residual **0.0 m²**
+under the *strict* test, with no tolerance applied, in 17 of the 18
+scene × variant runs. The 2010 machinery is untouched; only the vertex set
+changed.
 
-**And it is not affordable.** It costs **5–7× the vertices** and **6–9× the
-team**, against a cell-frontier planner that clears the same scenes with 5–13
-robots. The mechanism is the paper's own second finding, arriving from a new
-direction: more vertices make the guard graph denser — hb-allen-centre goes
-from 84 edges to 4 261 — and a graph strategy's cost is driven by the number
-of cycle edges it must hold, not by how much each robot sees. **Repairing the
-sampling so the abstraction becomes sound makes the instance the abstraction
-is expensive on.**
+**And it is not affordable.** It costs **6.2–7.8× the vertices** and
+**6.0–9.7× the team**, against a cell-frontier planner that clears the same
+scenes with 5–22 robots. The mechanism is the paper's own second finding
+arriving from a new direction: more vertices make the guard graph denser —
+the Bodleian goes from 808 edges to 38 254 — and a graph strategy pays per
+cycle edge held, not per area seen. **Repairing the sampling so the
+abstraction becomes sound makes the instance the abstraction is expensive on.**
 
-Two honest qualifications:
+Four qualifications, all against the result:
 
 * **The fixpoint does not close.** Each added vertex brings its own rim. Round
   one is decisive — Christ Church goes from 2 987 open rim cells to 318 for
   100 vertices — and then it stalls: eleven further rounds and 290 more
-  vertices only reach 200. Runs stop at a 12-round budget with 60–203 cells
+  vertices only reach 200. Runs stop at a 12-round budget with 60–476 cells
   still open on a third to a half of the vertices. **They cleared anyway**,
-  because what is left is 2.4–8.1 m² spread over many rims, at or below the
-  `A_min` tolerance the project already applies. So full rim closure was
-  sufficient-by-a-margin, not necessary, and the vertex counts above are an
+  because what is left is 2.4–19 m² spread over many rims. So full rim closure
+  was sufficient by a margin, not necessary, and the vertex counts above are an
   *upper* bound on what a smarter repair would need.
+* **One run of eighteen still fails.** `regular_biased` on Christ Church leaves
+  499.6 m² avoidable. The repair makes the method clear; it does not make every
+  variant of it clear.
 * **The baseline differs slightly.** This starts from Stage 5's raw ground
   sample; the Stage 6 graph the "before" column quotes has
   `repair_joint_residual` applied on top, which is why Keble reads 23 here and
   24 there, and Christ Church 57 against 62. The repaired graph therefore
   starts from *fewer* vertices than its own baseline — the result is not
   flattered by the difference.
+* **The tolerance in the repair runner is weaker than Stage 6's** — with no air
+  family present, `coverable` is the ground union alone, so an air-only cell is
+  classified uncoverable rather than avoidable. Every claim above is the strict
+  `cleared`, which that asymmetry cannot touch.
 
 ### 3. Hold the frontier of the cleared *region*, not the rims of its parts
 
