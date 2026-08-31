@@ -3,13 +3,14 @@
     "variant": "carved",
     "R": 30.0,
     "seed": 1,
-    "bounded": true
+    "bounded": true,
+    "vertex_set": "repaired-ground"
   },
   "scenes": [
     {
       "scene": "blenheim-palace",
       "title": "Blenheim Palace",
-      "boundary": {
+      "site_boundary": {
         "bounded": true,
         "stamp": "5196ff7e927c",
         "source": "e1-clearing-graph configs/site_boundary.yaml, drawn by hand",
@@ -18,24 +19,26 @@
         "held_line_m": 35.7,
         "retained_m2": 11619.7,
         "excluded_m2": 408.6,
-        "rim_segments": 2718,
-        "rim_length_m": 1087.2,
+        "outline_segments": 2718,
+        "outline_length_m": 1087.2,
         "cells_dropped": 9298,
         "walkable_dropped_m2": 371.9200000000001
       },
+      "vertex_set": "repaired-ground",
+      "released_vertices": 36,
       "cells": 283432,
       "area_m2": 11337.3,
-      "vertices": 36,
-      "edges": 167,
+      "vertices": 47,
+      "edges": 258,
       "cloud_points": 253055,
-      "route_points": 3787,
+      "route_points": 5449,
       "route_length_error_m": 0.0,
-      "uncoverable_m2": 102.2
+      "uncoverable_m2": 85.6
     },
     {
       "scene": "bodleian-library",
       "title": "Bodleian Library",
-      "boundary": {
+      "site_boundary": {
         "bounded": true,
         "stamp": "a20b8b56f9cf",
         "source": "e1-clearing-graph configs/site_boundary.yaml, drawn by hand",
@@ -44,24 +47,26 @@
         "held_line_m": 117.5,
         "retained_m2": 12042.4,
         "excluded_m2": 1665.4,
-        "rim_segments": 7062,
-        "rim_length_m": 2824.8,
+        "outline_segments": 7062,
+        "outline_length_m": 2824.8,
         "cells_dropped": 37239,
         "walkable_dropped_m2": 1489.5600000000002
       },
+      "vertex_set": "repaired-ground",
+      "released_vertices": 112,
       "cells": 286733,
       "area_m2": 11469.3,
-      "vertices": 112,
-      "edges": 808,
+      "vertices": 151,
+      "edges": 1408,
       "cloud_points": 252251,
-      "route_points": 15384,
+      "route_points": 25525,
       "route_length_error_m": 0.0001,
-      "uncoverable_m2": 409.2
+      "uncoverable_m2": 338.9
     },
     {
       "scene": "christ-church",
       "title": "Christ Church",
-      "boundary": {
+      "site_boundary": {
         "bounded": true,
         "stamp": "4b19deaef44d",
         "source": "e1-clearing-graph configs/site_boundary.yaml, drawn by hand",
@@ -70,24 +75,26 @@
         "held_line_m": 9.5,
         "retained_m2": 8614.6,
         "excluded_m2": 2012.0,
-        "rim_segments": 4424,
-        "rim_length_m": 1769.6000000000001,
+        "outline_segments": 4424,
+        "outline_length_m": 1769.6000000000001,
         "cells_dropped": 45658,
         "walkable_dropped_m2": 1826.3200000000002
       },
+      "vertex_set": "repaired-ground",
+      "released_vertices": 62,
       "cells": 203314,
       "area_m2": 8132.6,
-      "vertices": 62,
-      "edges": 245,
+      "vertices": 81,
+      "edges": 367,
       "cloud_points": 255574,
-      "route_points": 4659,
+      "route_points": 6522,
       "route_length_error_m": 0.0,
-      "uncoverable_m2": 205.4
+      "uncoverable_m2": 170.7
     },
     {
       "scene": "hb-allen-centre",
       "title": "HB Allen Centre",
-      "boundary": {
+      "site_boundary": {
         "bounded": true,
         "stamp": "e4646e9e944d",
         "source": "e1-clearing-graph configs/site_boundary.yaml, drawn by hand",
@@ -96,24 +103,26 @@
         "held_line_m": 1.9,
         "retained_m2": 1420.3,
         "excluded_m2": 14.2,
-        "rim_segments": 1158,
-        "rim_length_m": 463.20000000000005,
+        "outline_segments": 1158,
+        "outline_length_m": 463.20000000000005,
         "cells_dropped": 296,
         "walkable_dropped_m2": 11.840000000000002
       },
+      "vertex_set": "repaired-ground",
+      "released_vertices": 20,
       "cells": 32010,
       "area_m2": 1280.4,
-      "vertices": 20,
-      "edges": 84,
+      "vertices": 32,
+      "edges": 229,
       "cloud_points": 253292,
-      "route_points": 1278,
+      "route_points": 3644,
       "route_length_error_m": 0.0,
-      "uncoverable_m2": 64.7
+      "uncoverable_m2": 44.2
     },
     {
       "scene": "keble-college",
       "title": "Keble College",
-      "boundary": {
+      "site_boundary": {
         "bounded": true,
         "stamp": "76b72f7f0b17",
         "source": "e1-clearing-graph configs/site_boundary.yaml, drawn by hand",
@@ -122,24 +131,26 @@
         "held_line_m": 49.5,
         "retained_m2": 6347.8,
         "excluded_m2": 236.2,
-        "rim_segments": 2434,
-        "rim_length_m": 973.6,
+        "outline_segments": 2434,
+        "outline_length_m": 973.6,
         "cells_dropped": 4849,
         "walkable_dropped_m2": 193.96000000000004
       },
+      "vertex_set": "repaired-ground",
+      "released_vertices": 24,
       "cells": 154283,
       "area_m2": 6171.3,
-      "vertices": 24,
-      "edges": 84,
+      "vertices": 34,
+      "edges": 183,
       "cloud_points": 252789,
-      "route_points": 1727,
+      "route_points": 4050,
       "route_length_error_m": 0.0,
-      "uncoverable_m2": 56.6
+      "uncoverable_m2": 38.4
     },
     {
       "scene": "observatory-quarter",
       "title": "Observatory Quarter",
-      "boundary": {
+      "site_boundary": {
         "bounded": true,
         "stamp": "dc9812098a12",
         "source": "e1-clearing-graph configs/site_boundary.yaml, drawn by hand",
@@ -148,19 +159,21 @@
         "held_line_m": 59.9,
         "retained_m2": 3131.0,
         "excluded_m2": 745.8,
-        "rim_segments": 3058,
-        "rim_length_m": 1223.2,
+        "outline_segments": 3058,
+        "outline_length_m": 1223.2,
         "cells_dropped": 16669,
         "walkable_dropped_m2": 666.7600000000001
       },
+      "vertex_set": "repaired-ground",
+      "released_vertices": 39,
       "cells": 70957,
       "area_m2": 2838.3,
-      "vertices": 39,
-      "edges": 203,
+      "vertices": 60,
+      "edges": 481,
       "cloud_points": 253668,
-      "route_points": 4466,
+      "route_points": 10897,
       "route_length_error_m": 0.0,
-      "uncoverable_m2": 123.3
+      "uncoverable_m2": 95.4
     }
   ]
 }

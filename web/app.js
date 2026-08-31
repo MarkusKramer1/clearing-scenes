@@ -3,9 +3,9 @@
  * Everything it draws is a point cloud or a line set, so there is one geometry
  * per layer and no scene graph to speak of. The only slightly involved parts
  * are `paint()`, which decides what colour each walkable cell gets -- its
- * height, the detection set of a selected vertex, or the state of a schedule
- * step -- and the robot view below it, which puts the fleet on the schedule:
- * one marker with an id per robot, the ground it walks between two steps, and
+ * height, the detection set of a selected vertex, or the state of a strategy
+ * step -- and the machine view below it, which puts the fleet on the strategy:
+ * one marker with an id per machine, the ground it walks between two steps, and
  * the surface the one you click on watches.
  */
 
@@ -114,12 +114,12 @@ const ROUTE_LIFT_SEL = 0.75;
 const BOUND = 0x8fd4ff;
 const POST_EVERY_M = 2.4;
 
-// The robot view. A step is a set of vertices and says nothing about which
+// The machine view. A step is a set of vertices and says nothing about which
 // machine stands where, so the identities come from the roster shipped beside
-// the schedule (clearing/roster.py): a fleet as large as the peak team, matched
+// the strategy (clearing/roster.py): a fleet as large as the peak team, matched
 // step to step by least total travel.
 const TRANSIT = 0.75;        // of a play interval spent walking, the rest held
-const STEP_MS = 550;         // one step, in the plain schedule playback
+const STEP_MS = 550;         // one step, in the plain strategy playback
 const WALK_MS = 1500;        // one step, when the walking is being animated
 
 /* ------------------------------------------------------------------- scene */
@@ -127,8 +127,8 @@ const WALK_MS = 1500;        // one step, when the walking is being animated
 let renderer, camera, world, raycaster;
 let S = null;               // the loaded scene payload
 let G = {};                 // the THREE objects of the current scene
-let labels = [];            // one id sprite per robot of the current scene
-let selRobot = -1;
+let labels = [];            // one id sprite per machine of the current scene
+let selMachine = -1;
 let playing = false, phase = 0, lastMs = 0;
 
 function init() {
@@ -150,20 +150,20 @@ function init() {
   }
   sel.onchange = () => loadScene(sel.value);
 
-  for (const id of ["cloud", "surface", "edges", "shady", "nodes", "routes",
+  for (const id of ["cloud", "surface", "edges", "shady", "vertices", "routes",
                     "boundary"]) {
     $("#l-" + id).onchange = applyLayers;
   }
   $("#route-from").onchange = () => { fillRouteTo(); drawRoute(); };
   $("#route-to").onchange = drawRoute;
-  $("#vertex").onchange = () => { $("#show-sched").checked = false;
-                                  selRobot = -1; paint(); };
+  $("#vertex").onchange = () => { $("#show-strat").checked = false;
+                                  selMachine = -1; paint(); };
   $("#step").oninput = onScrub;
-  $("#show-sched").onchange = () => { $("#vertex").value = "-1"; paint(); };
-  $("#show-robots").onchange = () => { $("#vertex").value = "-1"; paint(); };
+  $("#show-strat").onchange = () => { $("#vertex").value = "-1"; paint(); };
+  $("#show-machines").onchange = () => { $("#vertex").value = "-1"; paint(); };
   $("#fleet-list").onclick = (e) => {
     const row = e.target.closest("[data-r]");
-    if (row) selectRobot(+row.dataset.r === selRobot ? -1 : +row.dataset.r);
+    if (row) selectRobot(+row.dataset.r === selMachine ? -1 : +row.dataset.r);
   };
   $("#play").onclick = togglePlay;
   addEventListener("keydown", (e) => {
@@ -180,8 +180,8 @@ function init() {
   sel.value = window.SCENE_INDEX.some((s) => s.name === want.scene)
     ? want.scene : window.SCENE_INDEX[0].name;
   loadScene(sel.value);
-  // The loop is a clock, not just a repaint: playing the schedule with the
-  // robots on walks them along their paths, and that has to be told how much
+  // The loop is a clock, not just a repaint: playing the strategy with the
+  // machines on walks them along their paths, and that has to be told how much
   // time went by rather than how many frames.
   (function loop(ms) {
     requestAnimationFrame(loop);
@@ -220,7 +220,7 @@ function loadScene(name) {
 
 function build(data) {
   stopPlay();
-  selRobot = -1;
+  selMachine = -1;
   for (const sp of labels) {
     world.remove(sp);
     sp.material.map.dispose();
@@ -246,10 +246,10 @@ function build(data) {
   G.surface = points(S.surf, S.surfBase.slice(), data.cellSize * 1.7);
 
   // graph
-  const nodes = decode(data.nodes, Float32Array);
+  const vertices = decode(data.vertices, Float32Array);
   const edges = decode(data.edges, Uint16Array);
   const shady = decode(data.edgeShady, Uint8Array);
-  S.nodes = nodes;
+  S.vertices = vertices;
   S.edges = edges;
   S.shady = shady;
   const lift = 0.6;
@@ -258,7 +258,7 @@ function build(data) {
     for (let e = 0; e < shady.length; e++) {
       if (shady[e] !== kind) continue;
       for (const v of [edges[2 * e], edges[2 * e + 1]]) {
-        pos.push(nodes[3 * v], nodes[3 * v + 1], nodes[3 * v + 2] + lift);
+        pos.push(vertices[3 * v], vertices[3 * v + 1], vertices[3 * v + 2] + lift);
       }
     }
     const g = new THREE.BufferGeometry();
@@ -269,12 +269,12 @@ function build(data) {
     });
     G[kind ? "shady" : "regular"] = new THREE.LineSegments(g, m);
   }
-  const np = new Float32Array(nodes.length);
-  for (let i = 0; i < nodes.length; i += 3) {
-    np[i] = nodes[i]; np[i + 1] = nodes[i + 1]; np[i + 2] = nodes[i + 2] + lift;
+  const np = new Float32Array(vertices.length);
+  for (let i = 0; i < vertices.length; i += 3) {
+    np[i] = vertices[i]; np[i + 1] = vertices[i + 1]; np[i + 2] = vertices[i + 2] + lift;
   }
   S.nodeDraw = np;
-  G.nodes = points(np, null, 2.4, 0xffeca8);
+  G.vertices = points(np, null, 2.4, 0xffeca8);
 
   // the walked routes, one polyline per edge
   S.routePts = dequantise(data.routes);
@@ -308,22 +308,22 @@ function build(data) {
 
   G.held = points(new Float32Array(0), null, 4.2, 0xff6a3d);
 
-  // the fleet: a marker per robot, the legs of the current step in the robots'
-  // own colours, and the selected robot's walked track
-  S.roster = data.schedule ? data.schedule.roster : null;
+  // the fleet: a marker per machine, the legs of the current step in the machines'
+  // own colours, and the selected machine's walked track
+  S.roster = data.strategy ? data.strategy.roster : null;
   S.legCache = new Map();
   S.robotIds = [];
   if (S.roster) {
-    S.robotPts = dequantise(S.roster.paths);
-    S.robotOff = decode(S.roster.paths.offsets, Uint32Array);
-    S.moveOf = S.roster.moves.map((step) => {
+    S.machinePts = dequantise(S.roster.paths);
+    S.machineOff = decode(S.roster.paths.offsets, Uint32Array);
+    S.legOf = S.roster.legs.map((step) => {
       const m = new Map();
       for (const mv of step) m.set(mv.r, mv);
       return m;
     });
   }
-  G.halo = discs(6.4, 0.5);          // behind the marker of the selected robot
-  G.robots = discs(3.6);
+  G.halo = discs(6.4, 0.5);          // behind the marker of the selected machine
+  G.machines = discs(3.6);
   G.legs = vsegments(new Float32Array(0), new Float32Array(0), 0.95);
   G.legDots = points(new Float32Array(0), new Float32Array(0), 1.5);
   G.track = segments(new Float32Array(0), 0xffffff, 0.55);
@@ -342,16 +342,16 @@ function build(data) {
   S.span = Math.max(bb.getSize(new THREE.Vector3()).x,
                     bb.getSize(new THREE.Vector3()).y);
   S.labelSize = S.span * 0.025;
-  if (S.roster) makeLabels(S.roster.nRobots);
+  if (S.roster) makeLabels(S.roster.nMachines);
 
   fillPanel();
   applyLayers();
   const want = hashState();
   if (want.vertex !== null) $("#vertex").value = want.vertex;
-  if (want.step !== null) { $("#step").value = want.step; $("#show-sched").checked = true; }
-  if (want.robot !== null && S.roster && want.robot < S.roster.nRobots) {
-    $("#show-robots").checked = true;
-    selRobot = want.robot;
+  if (want.step !== null) { $("#step").value = want.step; $("#show-strat").checked = true; }
+  if (want.machine !== null && S.roster && want.machine < S.roster.nMachines) {
+    $("#show-machines").checked = true;
+    selMachine = want.machine;
   }
   if (want.from !== null) {
     $("#route-from").value = want.from;
@@ -364,12 +364,12 @@ function build(data) {
   frame();
 }
 
-/** `#scene=christ-church&vertex=12`, `&step=7`, `&robot=3` -- a linkable view. */
+/** `#scene=christ-church&vertex=12`, `&step=7`, `&machine=3` -- a linkable view. */
 function hashState() {
   const q = new URLSearchParams(location.hash.replace(/^#/, ""));
   const num = (k) => (q.has(k) ? parseInt(q.get(k), 10) : null);
   return { scene: q.get("scene"), vertex: num("vertex"), step: num("step"),
-           from: num("from"), to: num("to"), robot: num("robot") };
+           from: num("from"), to: num("to"), machine: num("machine") };
 }
 
 /** Every edge index, as the default "all routes" selection. */
@@ -428,7 +428,7 @@ function vsegments(xyz, colours, opacity) {
     vertexColors: true, transparent: true, opacity }));
 }
 
-/** Robot markers: round, so that a robot is never a vertex seen up close.
+/** Machine markers: round, so that a machine is never a vertex seen up close.
  *
  * Every other layer here is a square point sprite -- the surface cells, the
  * graph vertices, the beads along a route. A disc is the one shape that is not
@@ -495,7 +495,7 @@ function paint() {
 
   const v = parseInt($("#vertex").value, 10);
   const t = parseInt($("#step").value, 10);
-  const showSched = $("#show-sched").checked;
+  const showStrat = $("#show-strat").checked;
   let held = [];
 
   if (v >= 0) {
@@ -506,9 +506,9 @@ function paint() {
     }
     held = [v];
     $("#step-label").textContent = "";
-  } else if (S.schedule && showSched) {
-    const dirty = unrle(S.schedule.contaminated[t], S.nCells);
-    held = S.schedule.steps[t];
+  } else if (S.strategy && showStrat) {
+    const dirty = unrle(S.strategy.contaminated[t], S.nCells);
+    held = S.strategy.steps[t];
     const seen = new Uint8Array(S.nCells);
     for (const q of held) {
       const m = dset(q);
@@ -520,18 +520,18 @@ function paint() {
     }
     const secs = S.roster ? S.roster.stepSeconds[t] : null;
     $("#step-label").textContent =
-      `step ${t + 1} of ${S.schedule.steps.length} — ${held.length} robots`
+      `step ${t + 1} of ${S.strategy.steps.length} — ${held.length} machines`
       + (secs ? ` — ${fmtTime(secs)} of walking` : "");
   } else {
     $("#step-label").textContent = "";
   }
 
-  // The one robot the reader is following: what it watches from where it
-  // stands, in its own colour, over whatever the schedule painted underneath.
-  if (v < 0 && robotMode() && selRobot >= 0) {
-    const rv = S.roster.positions[t][selRobot];
+  // The one machine the reader is following: what it watches from where it
+  // stands, in its own colour, over whatever the strategy painted underneath.
+  if (v < 0 && robotMode() && selMachine >= 0) {
+    const rv = S.roster.positions[t][selMachine];
     if (rv >= 0) {
-      const m = dset(rv), c = robotColour(selRobot);
+      const m = dset(rv), c = robotColour(selMachine);
       for (let i = 0; i < S.nCells; i++) {
         if (!m[i]) continue;
         col[3 * i] = c.r * 0.92; col[3 * i + 1] = c.g * 0.92;
@@ -554,35 +554,35 @@ function paint() {
   updateRobots();
 }
 
-/* ------------------------------------------------------------------ robots */
+/* ------------------------------------------------------------------ machines */
 
-/* A schedule step is a SET of vertices: it says which places are held and
+/* A strategy step is a SET of vertices: it says which places are held and
  * nothing about which machine holds them, so nine dots blinking on and off is
  * all it can honestly be drawn as. `clearing/roster.py` matches a fleet across
- * the steps -- least total travel, a robot the step does not need parking where
+ * the steps -- least total travel, a machine the step does not need parking where
  * it stands -- and ships one leg per occupied vertex with the path it walks.
  * That is what everything below draws. The fleet is exactly the peak team, so
  * the ids run R0..R8 on Blenheim and R0..R20 on the Bodleian and no further.
  */
 
 function roster() { return S && S.roster ? S.roster : null; }
-function robotMode() { return !!roster() && $("#show-robots").checked; }
+function robotMode() { return !!roster() && $("#show-machines").checked; }
 function stepAt() { return parseInt($("#step").value, 10) || 0; }
-function moveOf(t, r) {
-  const m = S.moveOf && S.moveOf[t];
+function legOf(t, r) {
+  const m = S.legOf && S.legOf[t];
   return m ? m.get(r) : undefined;
 }
 
-/* Three hues are already spoken for and a robot may not borrow any of them:
+/* Three hues are already spoken for and a machine may not borrow any of them:
  * amber is "watched now" and the graph edges, teal is "cleared" and the
- * surface, mauve is "contaminated". A robot painted in one of those is a robot
- * the reader has to look at twice -- and the selected robot's detection set is
+ * surface, mauve is "contaminated". A machine painted in one of those is a machine
+ * the reader has to look at twice -- and the selected machine's detection set is
  * painted in its own colour, straight over that palette. So the hue circle is
  * cut into the arcs that are left. */
 const HUE_ARCS = [[0.22, 0.44], [0.56, 0.87], [0.97, 1.05]];
 const HUE_SPAN = HUE_ARCS.reduce((a, [lo, hi]) => a + (hi - lo), 0);
 
-/** One hue per robot, walked along those arcs by the golden angle.
+/** One hue per machine, walked along those arcs by the golden angle.
  *
  * Any fleet size comes out with neighbouring ids far apart in colour, which is
  * what matters when R6 and R7 stand two vertices from each other. The
@@ -598,7 +598,7 @@ function robotColour(r) {
   return new THREE.Color().setHSL(HUE_ARCS[0][0], 0.95, 0.42);
 }
 
-/** The id sprites. One per robot, made once per scene and then only moved. */
+/** The id sprites. One per machine, made once per scene and then only moved. */
 function makeLabels(n) {
   for (let r = 0; r < n; r++) {
     const sp = labelSprite(`R${r}`, robotColour(r));
@@ -633,25 +633,25 @@ function labelSprite(text, colour) {
 /** The polyline of one leg, lifted to meet the vertex markers at both ends.
  *
  * The shipped path runs over the ground; a vertex is drawn at sensor height.
- * Blending the two offsets along the walk is what makes a robot leave its
+ * Blending the two offsets along the walk is what makes a machine leave its
  * marker and arrive at the next one without a step in the air.
  */
 function leg(k, frm, to) {
   if (S.legCache.has(k)) return S.legCache.get(k);
-  const a = S.robotOff[k], n = S.robotOff[k + 1] - a;
+  const a = S.machineOff[k], n = S.machineOff[k + 1] - a;
   if (!n) {                       // the two vertices cannot reach each other
     const empty = { pts: new Float32Array(0), cum: new Float64Array(0), n: 0, len: 0 };
     S.legCache.set(k, empty);
     return empty;
   }
   const pts = new Float32Array(n * 3);
-  const dz0 = S.nodeDraw[3 * frm + 2] - S.robotPts[3 * a + 2];
-  const dz1 = S.nodeDraw[3 * to + 2] - S.robotPts[3 * (a + n - 1) + 2];
+  const dz0 = S.nodeDraw[3 * frm + 2] - S.machinePts[3 * a + 2];
+  const dz1 = S.nodeDraw[3 * to + 2] - S.machinePts[3 * (a + n - 1) + 2];
   for (let i = 0; i < n; i++) {
     const u = n > 1 ? i / (n - 1) : 0;
-    pts[3 * i] = S.robotPts[3 * (a + i)];
-    pts[3 * i + 1] = S.robotPts[3 * (a + i) + 1];
-    pts[3 * i + 2] = S.robotPts[3 * (a + i) + 2] + dz0 + (dz1 - dz0) * u;
+    pts[3 * i] = S.machinePts[3 * (a + i)];
+    pts[3 * i + 1] = S.machinePts[3 * (a + i) + 1];
+    pts[3 * i + 2] = S.machinePts[3 * (a + i) + 2] + dz0 + (dz1 - dz0) * u;
   }
   const cum = new Float64Array(n);
   for (let i = 1; i < n; i++) {
@@ -680,11 +680,11 @@ function alongLeg(mv, g) {
     L.pts[3 * (i - 1) + c] + (L.pts[3 * i + c] - L.pts[3 * (i - 1) + c]) * u);
 }
 
-/** Where robot `r` is at step `t`, or `f` of the way into the step after it. */
+/** Where machine `r` is at step `t`, or `f` of the way into the step after it. */
 function robotPos(r, t, f) {
   const R = roster();
   const at = R.positions[t][r];
-  const mv = f > 0 ? moveOf(t + 1, r) : undefined;
+  const mv = f > 0 ? legOf(t + 1, r) : undefined;
   if (mv) return mv.p >= 0 ? alongLeg(mv, Math.min(f / TRANSIT, 1)) : nodePoint(mv.v);
   return at >= 0 ? nodePoint(at) : null;
 }
@@ -695,11 +695,11 @@ function placeRobots(f) {
   if (!R) return;
   const t = stepAt();
   const pos = [], col = [], ids = [], halo = [];
-  for (let r = 0; r < R.nRobots; r++) {
+  for (let r = 0; r < R.nMachines; r++) {
     const p = robotPos(r, t, f);
     if (!p) { labels[r].visible = false; continue; }
     const c = robotColour(r);
-    const hot = r === selRobot;
+    const hot = r === selMachine;
     pos.push(p[0], p[1], p[2]);
     col.push(c.r, c.g, c.b);
     if (hot) halo.push(p[0], p[1], p[2]);
@@ -713,7 +713,7 @@ function placeRobots(f) {
     sp.scale.set(size * sp.userData.aspect, size, 1);
   }
   S.robotIds = ids;
-  setGeom(G.robots, pos, col);
+  setGeom(G.machines, pos, col);
   setGeom(G.halo, halo, halo.length ? [1, 1, 1] : []);
 }
 
@@ -721,7 +721,7 @@ function placeRobots(f) {
 function drawLegs(t) {
   const R = roster();
   const pos = [], col = [], dots = [], dotCol = [];
-  for (const mv of (R && R.moves[t]) || []) {
+  for (const mv of (R && R.legs[t]) || []) {
     if (mv.p < 0) continue;
     const L = leg(mv.p, mv.f, mv.v), c = robotColour(mv.r);
     for (let i = 0; i + 1 < L.n; i++) {
@@ -737,13 +737,13 @@ function drawLegs(t) {
   setGeom(G.legDots, dots, dotCol);
 }
 
-/** Everything the selected robot has walked up to and including step `t`. */
+/** Everything the selected machine has walked up to and including step `t`. */
 function drawTrack(r, t) {
   const R = roster();
   const pos = [], dots = [];
   if (r >= 0 && R) {
-    for (let k = 0; k <= t && k < R.moves.length; k++) {
-      const mv = moveOf(k, r);
+    for (let k = 0; k <= t && k < R.legs.length; k++) {
+      const mv = legOf(k, r);
       if (!mv || mv.p < 0) continue;
       const L = leg(mv.p, mv.f, mv.v);
       for (let i = 0; i + 1 < L.n; i++) {
@@ -777,15 +777,15 @@ function beads(L, spacing, out) {
 }
 
 function selectRobot(r) {
-  selRobot = r;
+  selMachine = r;
   if (r >= 0) {
     $("#vertex").value = "-1";
-    $("#show-robots").checked = true;
+    $("#show-machines").checked = true;
   }
   paint();
 }
 
-/** The fleet list: one row per robot, what it is doing at this step. */
+/** The fleet list: one row per machine, what it is doing at this step. */
 function fillFleet(t) {
   const R = roster();
   const box = $("#fleet");
@@ -793,15 +793,15 @@ function fillFleet(t) {
   if (!robotMode()) return;
 
   const rows = [];
-  for (let r = 0; r < R.nRobots; r++) {
-    const at = R.positions[t][r], mv = moveOf(t, r), c = robotColour(r);
+  for (let r = 0; r < R.nMachines; r++) {
+    const at = R.positions[t][r], mv = legOf(t, r), c = robotColour(r);
     const idle = at < 0 || !mv;
     const what = at < 0 ? "off site"
       : !mv ? "parked"
       : mv.s == null ? "no route"
       : mv.p < 0 ? (mv.e ? "walks on" : "holds")
       : `${mv.e ? "walks on " : ""}${mv.m.toFixed(0)} m · ${fmtTime(mv.s)}`;
-    rows.push(`<div class="robot${r === selRobot ? " sel" : ""}`
+    rows.push(`<div class="machine${r === selMachine ? " sel" : ""}`
       + `${idle ? " idle" : ""}" data-r="${r}" `
       + `style="color:#${c.getHexString()}">`
       + `<i style="background:#${c.getHexString()}"></i>`
@@ -810,34 +810,34 @@ function fillFleet(t) {
   }
   $("#fleet-list").innerHTML = rows.join("");
 
-  const walked = R.moves.flat().reduce((a, mv) => a + (mv.m || 0), 0);
-  const sel = selRobot >= 0
-    ? ` · R${selRobot} has walked ${
-        R.moves.slice(0, t + 1).flat()
-          .filter((mv) => mv.r === selRobot)
+  const walked = R.legs.flat().reduce((a, mv) => a + (mv.m || 0), 0);
+  const sel = selMachine >= 0
+    ? ` · R${selMachine} has walked ${
+        R.legs.slice(0, t + 1).flat()
+          .filter((mv) => mv.r === selMachine)
           .reduce((a, mv) => a + (mv.m || 0), 0).toFixed(0)} m`
     : "";
-  // A parked robot is standing at a vertex and does see it. The verifier
+  // A parked machine is standing at a vertex and does see it. The verifier
   // credits only the vertices the step names, so what is painted for a parked
-  // robot is free sight the guarantee never used -- which is worth saying,
+  // machine is free sight the guarantee never used -- which is worth saying,
   // because the picture cannot show the difference.
-  const idle = selRobot >= 0 && R.positions[t][selRobot] >= 0
-    && !moveOf(t, selRobot);
+  const idle = selMachine >= 0 && R.positions[t][selMachine] >= 0
+    && !legOf(t, selMachine);
   $("#fleet-meta").textContent =
-    `${R.nRobots} robots, R0–R${R.nRobots - 1}, on site at vertex ${R.entry}; `
+    `${R.nMachines} machines, R0–R${R.nMachines - 1}, on site at vertex ${R.entry}; `
     + `${(walked / 1000).toFixed(1)} km walked in all${sel}.`
-    + (idle ? ` R${selRobot} is parked at this step: this step's guarantee `
+    + (idle ? ` R${selMachine} is parked at this step: this step's guarantee `
               + `does not count what it sees.` : "");
 }
 
-/** Show or hide everything the robot view owns. */
+/** Show or hide everything the machine view owns. */
 function showRobots(on) {
-  G.robots.visible = on;
-  G.halo.visible = on && selRobot >= 0;
+  G.machines.visible = on;
+  G.halo.visible = on && selMachine >= 0;
   G.legs.visible = on;
   G.legDots.visible = on;
-  G.track.visible = on && selRobot >= 0;
-  G.trackDots.visible = on && selRobot >= 0;
+  G.track.visible = on && selMachine >= 0;
+  G.trackDots.visible = on && selMachine >= 0;
   G.held.visible = !on;
   if (!on) for (const sp of labels) sp.visible = false;   // placeRobots re-shows
 }
@@ -851,7 +851,7 @@ function updateRobots() {
   // Standing at a step, the legs shown are the ones that got the team here;
   // playing, they are the ones being walked right now.
   drawLegs(playing ? stepAt() + 1 : stepAt());
-  drawTrack(selRobot, stepAt());
+  drawTrack(selMachine, stepAt());
 }
 
 /* ----------------------------------------------------------------- panel */
@@ -891,7 +891,7 @@ function fillPanel() {
   drawRoute();
 
   const pb = $("#playback");
-  if (!S.schedule) {
+  if (!S.strategy) {
     pb.style.display = "none";
     $("#fleet").style.display = "none";
     return;
@@ -899,13 +899,28 @@ function fillPanel() {
   pb.style.display = "";
   // Data written before the roster existed still loads; the toggle is simply
   // not offered, rather than offered and dead.
-  $("#show-robots").disabled = !S.roster;
-  $("#show-robots").parentElement.style.display = S.roster ? "" : "none";
-  const m = S.schedule.metrics;
-  $("#sched-meta").textContent =
-    `${S.schedule.key}: ${m.steps} steps, peak ${m.team_peak} robots, ` +
-    `residual ${m.residual_m2} m², ${(m.makespan_s / 3600).toFixed(2)} h`;
-  $("#step").max = S.schedule.steps.length - 1;
+  $("#show-machines").disabled = !S.roster;
+  $("#show-machines").parentElement.style.display = S.roster ? "" : "none";
+  // The strategy shipped is the DRIVEN one -- one machine moving at a time,
+  // nobody credited in transit -- so the line names the fleet and the avoidable
+  // residual, which are what the clock verdict is about. `atomic_searchers` is
+  // beside them because the two readings of the same plan disagree and hiding
+  // that is the one thing this panel must not do.
+  const m = S.strategy.metrics;
+  const spent = m.machines_spent ? `, ${m.machines_spent} spent` : "";
+  // BOTH residuals, never just the tolerant one. `avoidable` discounts every
+  // cell no vertex of this graph can see, and it is 0.00 on all six scenes --
+  // quoting it alone would read as "nothing is left", when what is left is
+  // ground nobody could ever have watched. The raw figure is beside it.
+  const rest = m.residual_m2 > m.residual_avoidable_m2
+    ? ` (+${(m.residual_m2 - m.residual_avoidable_m2).toFixed(2)} m² unseeable)`
+    : "";
+  $("#strat-meta").textContent =
+    `${S.strategy.key}: ${m.legs} legs, fleet ${m.fleet}` +
+    ` (atomic peak ${m.atomic_searchers}${spent}), ` +
+    `avoidable residual ${m.residual_avoidable_m2} m²${rest}, ` +
+    `${(m.mission_seconds / 3600).toFixed(2)} h`;
+  $("#step").max = S.strategy.steps.length - 1;
   $("#step").value = 0;
 }
 
@@ -957,9 +972,9 @@ function drawRoute() {
     which = [k];
     const i = v, j = w;
     const straight = Math.hypot(
-      S.nodes[3 * i] - S.nodes[3 * j],
-      S.nodes[3 * i + 1] - S.nodes[3 * j + 1],
-      S.nodes[3 * i + 2] - S.nodes[3 * j + 2]);
+      S.vertices[3 * i] - S.vertices[3 * j],
+      S.vertices[3 * i + 1] - S.vertices[3 * j + 1],
+      S.vertices[3 * i + 2] - S.vertices[3 * j + 2]);
     const detour = S.routeMetres[k] / Math.max(straight, 1e-6);
     text = `${i} → ${j}: walks ${S.routeMetres[k].toFixed(1)} m in `
       + `${fmtTime(S.routeSecs[k])} — ${detour.toFixed(2)}× the straight line `
@@ -993,7 +1008,7 @@ function applyLayers() {
   G.surface.visible = $("#l-surface").checked;
   G.regular.visible = $("#l-edges").checked;
   G.shady.visible = $("#l-edges").checked && $("#l-shady").checked;
-  G.nodes.visible = $("#l-nodes").checked;
+  G.vertices.visible = $("#l-vertices").checked;
   G.routes.visible = $("#l-routes").checked;
   // A scene exported with --no-boundary has no line to draw. The toggle is
   // hidden rather than left checked over nothing, because an empty layer that
@@ -1015,7 +1030,7 @@ function togglePlay() {
   lastMs = 0;
   $("#play").textContent = "Pause";
   $("#vertex").value = "-1";
-  if (!robotMode()) $("#show-sched").checked = true;
+  if (!robotMode()) $("#show-strat").checked = true;
   paint();
 }
 
@@ -1027,7 +1042,7 @@ function stopPlay() {
 
 /** Step by `d`, wrapping. The slider, the arrow keys and playback share it. */
 function stepBy(d) {
-  if (!S || !S.schedule) return;
+  if (!S || !S.strategy) return;
   const el = $("#step");
   const n = +el.max + 1;
   el.value = ((+el.value + d) % n + n) % n;
@@ -1036,7 +1051,7 @@ function stepBy(d) {
 
 function onScrub() {
   $("#vertex").value = "-1";
-  if (!robotMode()) $("#show-sched").checked = true;
+  if (!robotMode()) $("#show-strat").checked = true;
   paint();
 }
 
@@ -1049,18 +1064,18 @@ function pick(ev) {
     -((ev.clientY - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(m, camera);
   if (robotMode()) {
-    const who = raycaster.intersectObject(G.robots, false)[0];
+    const who = raycaster.intersectObject(G.machines, false)[0];
     if (who) {
       const r = S.robotIds[who.index];
       stopPlay();
-      selectRobot(r === selRobot ? -1 : r);
+      selectRobot(r === selMachine ? -1 : r);
       return;
     }
   }
-  const hit = raycaster.intersectObject(G.nodes, false)[0];
+  const hit = raycaster.intersectObject(G.vertices, false)[0];
   if (!hit) return;
   $("#vertex").value = hit.index;
-  selRobot = -1;
+  selMachine = -1;
   stopPlay();
   paint();
 }

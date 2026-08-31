@@ -1,27 +1,27 @@
 """Kolling et al. (2010) as published: GSST over random spanning trees.
 
-WHY THIS FILE EXISTS BESIDE `kolling.py`
------------------------------------------
-`clearing/kolling.py` computes a GRAPH-CLEAR label (Kolling & Carpin, IROS
-2007) and then plans with a greedy cover of the cell frontier. Neither half is
-what the 2010 paper does. The paper cites GRAPH-CLEAR in related work as *the
-alternative graph model it does not use*, and its planner never looks at a
-cell.
+WHAT THIS IS, AND WHAT IT IS NOT
+---------------------------------
+It is NOT GRAPH-CLEAR. The 2010 paper cites GRAPH-CLEAR (Kolling & Carpin,
+IROS 2007) in related work as *the alternative graph model it does not use*,
+and its planner never looks at a cell. A module implementing that other
+lineage used to sit beside this one and has been removed; `docs/gsst.md`
+records what it measured.
 
-What it actually runs is the other lineage, and this module is that lineage:
+What the paper actually runs is this:
 
   * contamination lives on VERTICES, following the robotics-adapted edge-search
     variant of Hollinger et al. (2008) rather than classical Parsons edge
     search;
   * strategies come from the label-based tree algorithm of Barriere et al.
     (2002), which yields contiguous strategies without recontamination;
-  * SLIDING IS FORBIDDEN. A robot driving cross-country between two strategic
+  * SLIDING IS FORBIDDEN. A searcher driving cross-country between two strategic
     locations cannot promise that its path covers the detection-set boundaries
     on the way, so only `place` and `remove` survive. That costs one searcher
     in the leaf case and the label recursion records it (see `label_no_slide`);
   * the anytime layer is GSST (Hollinger et al.): generate many random
     depth-first spanning trees, solve each, convert the tree strategy back to a
-    graph strategy by leaving a robot wherever a CYCLE EDGE leads into a
+    graph strategy by leaving a searcher wherever a CYCLE EDGE leads into a
     contaminated vertex, and keep the cheapest.
 
 The geometry -- sampling, detection sets, guard regions, the regular/shady
@@ -41,18 +41,29 @@ compares exactly three treatments, and so does `gsst`:
                     regular edges, pushing shady edges out of the tree where
                     the previous variant can then drop them
 
-Reported as 2-3 robots in the minimum across all tested conditions, with lower
-variance. Whether that reproduces here is the question this module is for.
+Reported as 2-3 searchers in the minimum across all tested conditions, with
+lower variance. Whether that reproduces here is the question this module is
+for.
 
 WHAT THE NUMBER IS, AND WHAT IT IS NOT
 ---------------------------------------
-`gsst` returns a team size and a schedule that clear the GUARD GRAPH under
-vertex contamination. That is the paper's claim and the paper stops there. It
+`gsst` returns a number of searchers and a strategy that clear the GUARD GRAPH
+under vertex contamination. That is the paper's claim and the paper stops there. It
 is not a cell-level guarantee: an edge is a coverage relation between a sensor
 position and a piece of boundary, and whether holding every such obligation
 also holds the surface is a separate question that `clearing.verify` answers
 without being told any of this. Both numbers are reported. They are not the
 same number and folding them together would be the whole error.
+
+AND THERE IS A THIRD NUMBER, which is the one that clears these sites. The
+strategy above is a sequence of SETS, and the model behind it moves every
+searcher between two of them in no time. `clearing.execute` drives it one
+MACHINE at a time -- keeping the paper's prohibition, so a mover is credited
+with nothing while it drives -- and `clearing.clock` charges for the interval.
+A searcher is the paper's token; a machine is a thing with an id and a route,
+and `docs/glossary.md` keeps the two apart.
+Atomically the published method leaves 7 749 m2 at Christ Church; driven, it
+leaves none. Nothing about the strategy changed between those two figures.
 """
 
 from __future__ import annotations
@@ -62,7 +73,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from .scene import Scene
-from .verify import Schedule
+from .verify import Strategy
 
 VARIANTS = ("naive", "regular", "regular_biased")
 
@@ -78,17 +89,29 @@ def adjacency(scene: Scene) -> tuple[list[list[int]], list[list[bool]]]:
     Undirected. The export has already collapsed the two directions of a pair
     into one edge, taking regular over shady where they disagree -- a decision
     made upstream and recorded in `docs/scene-format.md`, not re-made here.
+
+    EACH NEIGHBOUR LIST IS SORTED, and that is not tidiness. `random_dfs_forest`
+    draws `rng.permutation(len(adj[u]))` and reads `adj[u]` through it, so the
+    ORDER of a neighbour list is part of what a seed means: the same seed over
+    a list in edge order and over the same list sorted picks different
+    neighbours and grows a different forest. Sorting is what makes a draw a
+    property of the graph rather than of the order the edges happened to be
+    written in, and it is what `e2.graph_guided.GraphGuide.from_edges` does
+    upstream, so the two agree draw for draw at equal seed.
     """
-    n = scene.n_nodes
-    adj: list[list[int]] = [[] for _ in range(n)]
-    shady: list[list[bool]] = [[] for _ in range(n)]
+    n = scene.n_vertices
+    pairs: list[list[tuple[int, bool]]] = [[] for _ in range(n)]
     for k in range(len(scene.edge_ij)):
         i, j = (int(v) for v in scene.edge_ij[k])
         s = bool(scene.edge_shady[k])
-        adj[i].append(j)
-        shady[i].append(s)
-        adj[j].append(i)
-        shady[j].append(s)
+        pairs[i].append((j, s))
+        pairs[j].append((i, s))
+    adj: list[list[int]] = []
+    shady: list[list[bool]] = []
+    for row in pairs:
+        row.sort()
+        adj.append([v for v, _ in row])
+        shady.append([q for _, q in row])
     return adj, shady
 
 
@@ -173,7 +196,7 @@ def label_no_slide(children: list[list[int]], root: int) -> dict[int, int]:
     the last child is a leaf -- it is not, and the label goes to 2.
 
     With sliding the guard would move INTO the last subtree and clear it on the
-    way, and the 2 would never appear. A robot crossing open terrain cannot
+    way, and the 2 would never appear. A searcher crossing open terrain cannot
     sweep a detection-set boundary while it drives, so it does appear here.
 
     Returned per vertex, entered from its parent. Leaves get 1.
@@ -208,8 +231,8 @@ def tree_strategy(children: list[list[int]], lab: dict[int, int],
                   root: int) -> list[frozenset[int]]:
     """The move sequence the label counts, as the occupied set per step.
 
-    Each step is the set of vertices a robot stands on. Steps are not single
-    moves: a handover places one robot and lifts another, which is two robots
+    Each step is the set of vertices a searcher stands on. Steps are not single
+    moves: a handover places one searcher and lifts another, which is two searchers
     and one instant, and the peak of `len(step)` over the sequence is exactly
     the label at the root.
 
@@ -226,7 +249,7 @@ def tree_strategy(children: list[list[int]], lab: dict[int, int],
 
     Step 3 is the handover the no-sliding rule forces, and it is where the
     extra searcher of `label_no_slide` is spent. When the call returns, the
-    whole subtree is clear and no robot is left inside it -- which is sound on
+    whole subtree is clear and no searcher is left inside it -- which is sound on
     a TREE, where the parent edge is the only way back in, and is exactly the
     assumption `to_graph_strategy` then has to pay for on a graph.
     """
@@ -279,13 +302,16 @@ def _flood(contaminated: np.ndarray, blocked: np.ndarray,
 
 def to_graph_strategy(n: int, steps: list[frozenset[int]],
                       tree_adj: list[list[int]],
-                      cycle_adj: list[list[int]]) -> list[tuple[int, ...]]:
-    """Leave a robot wherever a cycle edge leads into a contaminated vertex.
+                      cycle_adj: list[list[int]],
+                      contaminated: np.ndarray | None = None,
+                      ) -> tuple[list[tuple[int, ...]],
+                                 list[frozenset[int]], np.ndarray]:
+    """Leave a searcher wherever a cycle edge leads into a contaminated vertex.
 
     A tree strategy walks away from a cleared subtree because a tree has no
     other way back in. A graph does: every edge outside the spanning tree is a
     door the tree strategy does not know about. GSST's conversion is to station
-    a robot on the cleared side of any such door that is still open.
+    a searcher on the cleared side of any such door that is still open.
 
     CONTAMINATION IS READ OFF THE TREE, not off the graph, and that is not a
     shortcut -- it is the only order in which the question can be asked. On the
@@ -298,12 +324,22 @@ def to_graph_strategy(n: int, steps: list[frozenset[int]],
     it is at the first. Any edge from a tree-contaminated vertex to a
     tree-clear one is either a tree edge -- and then the tree flood would have
     crossed it unless the far end is occupied by the step itself -- or a cycle
-    edge, and then this rule has just put a robot on the far end. Either way
+    edge, and then this rule has just put a searcher on the far end. Either way
     the boundary is occupied, the graph flood cannot cross it, and the
     containment survives the step.
+
+    THE STATE IS THREADED THROUGH THE COMPONENTS, not restarted at each. A
+    forest is cleared one component at a time, but the contamination is one set
+    over the whole graph: restarting it would re-mark a finished component as
+    contaminated. It buys no guard -- there are no edges between components, so
+    nothing there could ever put a searcher on a door -- but it makes the recorded
+    state a lie, and the state is what a picture of the strategy is a picture
+    of. Returned alongside the strategy for that reason.
     """
-    tree_contaminated = np.ones(n, dtype=bool)
+    tree_contaminated = (np.ones(n, dtype=bool) if contaminated is None
+                         else contaminated.copy())
     out: list[tuple[int, ...]] = []
+    dirty: list[frozenset[int]] = []
     for step in steps:
         occ = np.zeros(n, dtype=bool)
         occ[list(step)] = True
@@ -313,12 +349,13 @@ def to_graph_strategy(n: int, steps: list[frozenset[int]],
                     and any(tree_contaminated[w] for w in cycle_adj[u]):
                 occ[u] = True
         out.append(tuple(np.flatnonzero(occ).tolist()))
-    return out
+        dirty.append(frozenset(int(v) for v in np.flatnonzero(tree_contaminated)))
+    return out, dirty, tree_contaminated
 
 
 def graph_clears(n: int, steps: list[tuple[int, ...]],
                  adj: list[list[int]]) -> tuple[bool, int]:
-    """Does this schedule clear the graph? The vertex-level judge.
+    """Does this strategy clear the graph? The vertex-level judge.
 
     Deliberately independent of everything above: it is handed a sequence of
     occupied sets and an adjacency, and it believes only those. A strategy that
@@ -344,7 +381,7 @@ class Draw:
 
     seed_index: int
     tree_label: int                 # max over components of the root label
-    team: int                       # peak of the graph strategy
+    searchers: int                       # peak of the graph strategy
     steps: list[tuple[int, ...]]
     tree_edges: int
     shady_in_tree: int
@@ -352,29 +389,43 @@ class Draw:
     cleared: bool
     residual_vertices: int
 
+    #: The forest itself, so a strategy can be DRAWN as the tree it was read
+    #: off rather than guessed at from the occupied sets. Vertex ids are the
+    #: scene's own -- this module never renumbers.
+    children: tuple[tuple[int, ...], ...] = ()
+    parent: tuple[int, ...] = ()
+    roots: tuple[int, ...] = ()
+    labels: tuple[int, ...] = ()
+    #: Per step, the contamination the TREE strategy believes in. This is the
+    #: state the cycle-edge rule was computed against, and the only one a
+    #: picture of the tree is a picture of; the GRAPH state at the same step is
+    #: a subset of it and is what `graph_clears` judges.
+    tree_dirty: tuple[frozenset[int], ...] = ()
+    shady_in_best_tree: tuple[tuple[int, int], ...] = ()
+
 
 @dataclass
 class GsstResult:
     variant: str
     scene: str
     best: Draw
-    teams: list[int] = field(default_factory=list)       # per draw
+    searchers_per_draw: list[int] = field(default_factory=list)       # per draw
     labels: list[int] = field(default_factory=list)
     n_trees: int = 0
 
     @property
-    def schedule(self) -> Schedule:
-        return Schedule(self.best.steps, name=f"gsst/{self.variant}")
+    def strategy(self) -> Strategy:
+        return Strategy(self.best.steps, name=f"gsst/{self.variant}")
 
     def summary(self) -> dict:
-        t = np.array(self.teams, dtype=float)
+        t = np.array(self.searchers_per_draw, dtype=float)
         return {
             "variant": self.variant,
             "trees": self.n_trees,
-            "team_min": int(t.min()),
-            "team_mean": round(float(t.mean()), 2),
-            "team_sd": round(float(t.std(ddof=1)) if t.size > 1 else 0.0, 2),
-            "team_max": int(t.max()),
+            "searchers_min": int(t.min()),
+            "searchers_mean": round(float(t.mean()), 2),
+            "searchers_sd": round(float(t.std(ddof=1)) if t.size > 1 else 0.0, 2),
+            "searchers_max": int(t.max()),
             "tree_label_min": int(min(self.labels)),
             "tree_label_at_best": self.best.tree_label,
             "steps": len(self.best.steps),
@@ -392,20 +443,22 @@ def run(scene: Scene, variant: str = "regular", n_trees: int = 100,
     The label is what the tree costs; the cycle edges are what the graph adds
     on top, and on a dense guard graph the second term is the one that decides.
 
-    Ties on team size are broken by the shorter schedule -- an arbitrary but
+    Ties on team size are broken by the shorter strategy -- an arbitrary but
     fixed rule, so that a rerun with the same seed returns the same strategy.
     """
     if variant not in VARIANTS:
         raise ValueError(f"unknown variant {variant!r}, expected one of {VARIANTS}")
 
-    n = scene.n_nodes
+    n = scene.n_vertices
     adj, shady = adjacency(scene)
+    shady_of = {(min(int(i), int(j)), max(int(i), int(j))): bool(sh)
+                for (i, j), sh in zip(scene.edge_ij, scene.edge_shady)}
     rng = np.random.default_rng(seed)
     drop_shady = variant in ("regular", "regular_biased")
     bias = variant == "regular_biased"
 
     best: Draw | None = None
-    teams, labels = [], []
+    searchers_per_draw, labels = [], []
 
     for k in range(n_trees):
         children, parent, roots = random_dfs_forest(adj, shady, rng, bias_regular=bias)
@@ -441,25 +494,42 @@ def run(scene: Scene, variant: str = "regular", n_trees: int = 100,
         # one component at a time: they are cleared in sequence, so the team is
         # the largest of them and not their sum
         steps: list[tuple[int, ...]] = []
+        dirty: list[frozenset[int]] = []
+        labels = [0] * n
         tree_label = 0
+        carried = np.ones(n, dtype=bool)
         for r in roots:
             lab = label_no_slide(children, r)
             tree_label = max(tree_label, lab[r])
-            steps.extend(to_graph_strategy(
-                n, tree_strategy(children, lab, r), tree_adj, cycle_adj))
+            for v, q in lab.items():
+                labels[v] = int(q)
+            st, dy, carried = to_graph_strategy(
+                n, tree_strategy(children, lab, r), tree_adj, cycle_adj,
+                contaminated=carried)
+            steps.extend(st)
+            dirty.extend(dy)
 
         ok, residual = graph_clears(n, steps, graph_adj)
-        team = max((len(s) for s in steps), default=0)
-        draw = Draw(seed_index=k, tree_label=tree_label, team=team, steps=steps,
+        searchers = max((len(s) for s in steps), default=0)
+        draw = Draw(seed_index=k, tree_label=tree_label,
+                    searchers=searchers, steps=steps,
                     tree_edges=len(in_tree), shady_in_tree=shady_in_tree,
-                    cycle_edges=cycle_edges, cleared=ok, residual_vertices=residual)
-        teams.append(team)
+                    cycle_edges=cycle_edges, cleared=ok, residual_vertices=residual,
+                    children=tuple(tuple(c) for c in children),
+                    parent=tuple(int(q) for q in parent),
+                    roots=tuple(int(q) for q in roots),
+                    labels=tuple(labels), tree_dirty=tuple(dirty),
+                    shady_in_best_tree=tuple(sorted(
+                        e for e in in_tree if shady_of.get(e, False))))
+        searchers_per_draw.append(searchers)
         labels.append(tree_label)
-        if best is None or (team, len(steps)) < (best.team, len(best.steps)):
+        if best is None or (searchers, len(steps)) < (best.searchers,
+                                                       len(best.steps)):
             best = draw
             if verbose:
-                print(f"    draw {k:>3}: team {team:>3} (label {tree_label}), "
+                print(f"    draw {k:>3}: {searchers:>3} searchers "
+                      f"(label {tree_label}), "
                       f"{len(steps)} steps  <- best", flush=True)
 
     return GsstResult(variant=variant, scene=scene.name, best=best,
-                      teams=teams, labels=labels, n_trees=n_trees)
+                      searchers_per_draw=searchers_per_draw, labels=labels, n_trees=n_trees)

@@ -33,7 +33,7 @@
     <label><input type="checkbox" id="l-surface" checked> Walkable surface</label>
     <label><input type="checkbox" id="l-edges" checked> Guard-region edges</label>
     <label><input type="checkbox" id="l-shady" checked> &nbsp;&nbsp;&mdash; incl. shady</label>
-    <label><input type="checkbox" id="l-nodes" checked> Vertices</label>
+    <label><input type="checkbox" id="l-vertices" checked> Vertices</label>
     <label><input type="checkbox" id="l-routes"> Robot routes (all)</label>
     <label><input type="checkbox" id="l-boundary" checked> Scenario boundary</label>
   </fieldset>
@@ -49,7 +49,7 @@
       <select id="route-to"></select>
     </label>
     <div id="route-meta" class="hint"></div>
-    <p class="hint">The path the robot actually walks, over the walkable
+    <p class="hint">The path the platform actually walks, over the walkable
       surface. An edge of the graph is a line of sight; the ground between its
       two ends may be a building.</p>
   </fieldset>
@@ -60,15 +60,15 @@
       <span>Vertex</span>
       <select id="vertex"></select>
     </label>
-    <p class="hint">The surface a robot standing there sees. Click a vertex in
+    <p class="hint">The surface a searcher standing there sees. Click a vertex in
       the view to pick it.</p>
   </fieldset>
 
   <fieldset id="playback">
-    <legend>Clearing schedule</legend>
-    <div id="sched-meta" class="hint"></div>
-    <label><input type="checkbox" id="show-sched"> Paint the schedule state</label>
-    <label><input type="checkbox" id="show-robots"> Show the robots, with their ids</label>
+    <legend>Clearing strategy</legend>
+    <div id="strat-meta" class="hint"></div>
+    <label><input type="checkbox" id="show-strat"> Paint the strategy state</label>
+    <label><input type="checkbox" id="show-machines"> Show the machines, with their ids</label>
     <input type="range" id="step" min="0" max="0" value="0">
     <div class="row">
       <button id="play">Play</button>
@@ -86,10 +86,10 @@
     <legend>Fleet</legend>
     <div id="fleet-meta" class="hint"></div>
     <div id="fleet-list"></div>
-    <p class="hint">Click a robot &mdash; in the list or in the view &mdash; for
+    <p class="hint">Click a machine &mdash; in the list or in the view &mdash; for
       the surface it watches from where it stands and the ground it has walked.
       Playing walks the team along the paths it really takes between two steps.</p>
-    <p class="hint">A step is instantaneous in the model: a robot in transit
+    <p class="hint">A searcher in transit is credited with nothing: a machine
       watches nothing, and the guarantee is about the vertices a step holds, not
       about the walking between them.</p>
   </fieldset>

@@ -1,9 +1,10 @@
-# Blenheim Palace -- ground-robot clearing scenario
+# Blenheim Palace -- ground-platform clearing scenario
 #
 # Vertices are sampled sensor positions on the walkable surface. An edge
-# (i, j) exists where a robot at j can watch part of the rim of what a
-# robot at i sees -- the guard region of Kolling et al. 2010. `routes`
-# gives the ground robot's travel time between every pair of vertices;
+# (i, j) exists where a searcher at j can watch part of dD(p_i), the
+# boundary of what a searcher at i sees: the guard region G_ij of
+# Kolling et al. 2010. `routes` gives the platform's travel time
+# between every pair of vertices;
 # the path it actually walks along each edge is in the npz beside it.
 #
 # Regenerate with scripts/export_from_e1.py; see docs/scene-format.md.
@@ -17,9 +18,11 @@ source:
   pipeline: e1-clearing-graph, stages 2-6
   occupancy: O-carved (unobserved space blocks)
   graph_file: carved_huav20_R30_seed1
+  vertex_set: repaired-ground
+  vertex_set_note: E1 Stage 5/6 plus e2.gsst.repair_scene(level='ground'); guard graph rebuilt with e1.graph.build_graph and checked against e2.gsst.ground_guide
   note: the ground half of E1's two-platform graph; identical for every h_uav, which only selects the file
 
-robot:
+platform:
   kind: ground
   sensor_height_m: 1.0
   detection_range_m: 30.0
@@ -30,12 +33,12 @@ target:
   radius_m: 0.25
   visibility: all 5 rays to the target cylinder must pass
 
-boundary:
+site_boundary:
   # Where the scenario stops. Drawn by hand in e1-clearing-graph
   # (configs/site_boundary.yaml) and approved there; the surface,
   # the vertices, the guard regions and the routes below are all
-  # what survives it. The evader cannot leave it and no robot has to
-  # watch across it: the drawn lines are held, not open frontier.
+  # what survives it. The evader cannot leave it and no searcher has
+  # to watch across it: the drawn lines are held, not open frontier.
   bounded: true
   stamp: 5196ff7e927c            # hash of the drawn lines; matches E1's approval
   approved: 2026-08-22
@@ -46,8 +49,8 @@ boundary:
   walkable_dropped_m2: 371.9   # what that is in area: surveyed ground this scenario gives up
   excluded_m2: 408.6           # E1's own figure, measured on its 0.4 m boundary raster rather
                               # than on this 0.2 m walkable surface, so the two differ slightly
-  rim_segments: 2718
-  rim_length_m: 1087.2       # the whole outline, in the npz as boundary_seg
+  outline_segments: 2718
+  outline_length_m: 1087.2    # the whole outline, in the npz as site_boundary_seg
 
 surface:
   geometry_file: geometry/blenheim-palace.npz
@@ -58,233 +61,336 @@ surface:
   bbox_max: [-6.97, -0.92, -1.31]
   max_step_m: 0.25          # height a neighbouring cell may differ by
   evader_edges: 1119062       # 8-connected under that rule; recomputed, not stored
-  uncoverable_cells: 2556   # seen by no vertex, at any team size
-  uncoverable_area_m2: 102.24
+  uncoverable_cells: 2140   # seen by no vertex, at any team size
+  uncoverable_area_m2: 85.6
 
 graph:
-  vertices: 36
-  edges: 167
-  edges_regular: 112
-  edges_shady: 55
+  vertices: 47
+  edges: 258
+  edges_regular: 170
+  edges_shady: 88
 
-  # id, position of the sensor [m], area the vertex sees, size of the rim
+  # id, sensor position [m], the area D(p) the vertex sees, and how
+  # many cells its detection-set boundary dD(p) is
   vertices_list:
-    - {id:   0, xyz: [   -69.77,    -46.92,   -4.25], detection_m2:   2795.2, boundary_cells:   1019}
-    - {id:   1, xyz: [   -50.97,    -98.72,   -4.02], detection_m2:   2594.2, boundary_cells:   1286}
-    - {id:   2, xyz: [  -100.17,    -68.92,   -4.11], detection_m2:     2449, boundary_cells:   1357}
-    - {id:   3, xyz: [   -35.17,    -45.92,   -3.67], detection_m2:   1950.4, boundary_cells:    994}
-    - {id:   4, xyz: [   -97.17,   -107.32,   -4.13], detection_m2:   1771.1, boundary_cells:   1166}
-    - {id:   5, xyz: [  -101.17,    -33.12,   -4.52], detection_m2:   1798.2, boundary_cells:    619}
-    - {id:   6, xyz: [   -76.57,   -121.32,   -3.76], detection_m2:    662.4, boundary_cells:    890}
-    - {id:   7, xyz: [   -38.97,   -111.92,   -3.67], detection_m2:   1137.5, boundary_cells:   1088}
-    - {id:   8, xyz: [   -75.97,    -15.12,   -4.95], detection_m2:   1368.8, boundary_cells:    420}
-    - {id:   9, xyz: [   -27.37,    -73.52,   -3.58], detection_m2:     1586, boundary_cells:   1545}
-    - {id:  10, xyz: [  -119.17,    -66.32,   -3.52], detection_m2:   1403.6, boundary_cells:   1382}
-    - {id:  11, xyz: [   -62.57,   -137.92,    -0.9], detection_m2:    165.4, boundary_cells:    624}
-    - {id:  12, xyz: [   -38.97,   -120.92,   -2.86], detection_m2:   1042.8, boundary_cells:   1123}
-    - {id:  13, xyz: [   -65.77,   -157.52,   -0.63], detection_m2:     54.6, boundary_cells:    217}
-    - {id:  14, xyz: [  -101.97,   -121.72,   -3.58], detection_m2:    487.8, boundary_cells:    943}
-    - {id:  15, xyz: [   -59.77,   -148.52,   -0.62], detection_m2:     46.1, boundary_cells:    265}
-    - {id:  16, xyz: [   -19.77,   -102.72,   -3.48], detection_m2:    165.6, boundary_cells:    597}
-    - {id:  17, xyz: [    -9.97,    -62.32,   -3.57], detection_m2:     89.7, boundary_cells:    624}
-    - {id:  18, xyz: [   -64.57,   -130.72,   -1.82], detection_m2:    547.9, boundary_cells:   1252}
-    - {id:  19, xyz: [   -60.17,   -161.32,   -0.63], detection_m2:     19.5, boundary_cells:    105}
-    - {id:  20, xyz: [   -74.37,   -141.72,   -2.63], detection_m2:    340.1, boundary_cells:    293}
-    - {id:  21, xyz: [   -42.77,    -25.32,   -4.51], detection_m2:     1364, boundary_cells:    568}
-    - {id:  22, xyz: [   -17.97,    -84.32,   -3.33], detection_m2:    332.6, boundary_cells:    578}
-    - {id:  23, xyz: [   -65.97,   -146.92,   -0.63], detection_m2:     44.1, boundary_cells:    324}
-    - {id:  24, xyz: [  -106.17,    -76.92,   -3.64], detection_m2:   1168.5, boundary_cells:   1163}
-    - {id:  25, xyz: [  -114.97,   -104.72,    -3.5], detection_m2:    117.2, boundary_cells:    500}
-    - {id:  26, xyz: [   -38.57,    -69.12,    -4.1], detection_m2:   2095.2, boundary_cells:   1443}
-    - {id:  27, xyz: [   -57.97,   -157.72,   -0.63], detection_m2:     50.2, boundary_cells:    163}
-    - {id:  28, xyz: [   -20.77,   -106.92,    -3.5], detection_m2:     81.6, boundary_cells:    357}
-    - {id:  29, xyz: [  -115.17,    -92.52,   -3.16], detection_m2:    209.6, boundary_cells:    475}
-    - {id:  30, xyz: [   -58.37,   -122.32,   -2.84], detection_m2:   1675.2, boundary_cells:   1359}
-    - {id:  31, xyz: [   -66.37,   -148.72,   -0.63], detection_m2:     50.5, boundary_cells:    299}
-    - {id:  32, xyz: [  -130.77,    -75.52,   -3.56], detection_m2:    139.1, boundary_cells:    466}
-    - {id:  33, xyz: [   -92.17,   -123.32,   -3.26], detection_m2:   1022.9, boundary_cells:   1550}
-    - {id:  34, xyz: [   -17.37,    -70.92,   -3.43], detection_m2:    648.5, boundary_cells:    878}
-    - {id:  35, xyz: [   -61.37,   -154.12,   -0.63], detection_m2:       58, boundary_cells:    279}
+    - {id:   0, xyz: [   -69.77,    -46.92,   -4.25], detection_m2:   2795.2, detection_boundary_cells:   1019}
+    - {id:   1, xyz: [   -50.97,    -98.72,   -4.02], detection_m2:   2594.2, detection_boundary_cells:   1286}
+    - {id:   2, xyz: [  -100.17,    -68.92,   -4.11], detection_m2:     2449, detection_boundary_cells:   1357}
+    - {id:   3, xyz: [   -35.17,    -45.92,   -3.67], detection_m2:   1950.4, detection_boundary_cells:    994}
+    - {id:   4, xyz: [   -97.17,   -107.32,   -4.13], detection_m2:   1771.1, detection_boundary_cells:   1166}
+    - {id:   5, xyz: [  -101.17,    -33.12,   -4.52], detection_m2:   1798.2, detection_boundary_cells:    619}
+    - {id:   6, xyz: [   -76.57,   -121.32,   -3.76], detection_m2:    662.4, detection_boundary_cells:    890}
+    - {id:   7, xyz: [   -38.97,   -111.92,   -3.67], detection_m2:   1137.5, detection_boundary_cells:   1088}
+    - {id:   8, xyz: [   -75.97,    -15.12,   -4.95], detection_m2:   1368.8, detection_boundary_cells:    420}
+    - {id:   9, xyz: [   -27.37,    -73.52,   -3.58], detection_m2:     1586, detection_boundary_cells:   1545}
+    - {id:  10, xyz: [  -119.17,    -66.32,   -3.52], detection_m2:   1403.6, detection_boundary_cells:   1382}
+    - {id:  11, xyz: [   -62.57,   -137.92,    -0.9], detection_m2:    165.4, detection_boundary_cells:    624}
+    - {id:  12, xyz: [   -38.97,   -120.92,   -2.86], detection_m2:   1042.8, detection_boundary_cells:   1123}
+    - {id:  13, xyz: [   -65.77,   -157.52,   -0.63], detection_m2:     54.6, detection_boundary_cells:    217}
+    - {id:  14, xyz: [  -101.97,   -121.72,   -3.58], detection_m2:    487.8, detection_boundary_cells:    943}
+    - {id:  15, xyz: [   -59.77,   -148.52,   -0.62], detection_m2:     46.1, detection_boundary_cells:    265}
+    - {id:  16, xyz: [   -19.77,   -102.72,   -3.48], detection_m2:    165.6, detection_boundary_cells:    597}
+    - {id:  17, xyz: [    -9.97,    -62.32,   -3.57], detection_m2:     89.7, detection_boundary_cells:    624}
+    - {id:  18, xyz: [   -64.57,   -130.72,   -1.82], detection_m2:    547.9, detection_boundary_cells:   1252}
+    - {id:  19, xyz: [   -60.17,   -161.32,   -0.63], detection_m2:     19.5, detection_boundary_cells:    105}
+    - {id:  20, xyz: [   -74.37,   -141.72,   -2.63], detection_m2:    340.1, detection_boundary_cells:    293}
+    - {id:  21, xyz: [   -42.77,    -25.32,   -4.51], detection_m2:     1364, detection_boundary_cells:    568}
+    - {id:  22, xyz: [   -17.97,    -84.32,   -3.33], detection_m2:    332.6, detection_boundary_cells:    578}
+    - {id:  23, xyz: [   -65.97,   -146.92,   -0.63], detection_m2:     44.1, detection_boundary_cells:    324}
+    - {id:  24, xyz: [  -106.17,    -76.92,   -3.64], detection_m2:   1168.5, detection_boundary_cells:   1163}
+    - {id:  25, xyz: [  -114.97,   -104.72,    -3.5], detection_m2:    117.2, detection_boundary_cells:    500}
+    - {id:  26, xyz: [   -38.57,    -69.12,    -4.1], detection_m2:   2095.2, detection_boundary_cells:   1443}
+    - {id:  27, xyz: [   -57.97,   -157.72,   -0.63], detection_m2:     50.2, detection_boundary_cells:    163}
+    - {id:  28, xyz: [   -20.77,   -106.92,    -3.5], detection_m2:     81.6, detection_boundary_cells:    357}
+    - {id:  29, xyz: [  -115.17,    -92.52,   -3.16], detection_m2:    209.6, detection_boundary_cells:    475}
+    - {id:  30, xyz: [   -58.37,   -122.32,   -2.84], detection_m2:   1675.2, detection_boundary_cells:   1359}
+    - {id:  31, xyz: [   -66.37,   -148.72,   -0.63], detection_m2:     50.5, detection_boundary_cells:    299}
+    - {id:  32, xyz: [  -130.77,    -75.52,   -3.56], detection_m2:    139.1, detection_boundary_cells:    466}
+    - {id:  33, xyz: [   -92.17,   -123.32,   -3.26], detection_m2:   1022.9, detection_boundary_cells:   1550}
+    - {id:  34, xyz: [   -17.37,    -70.92,   -3.43], detection_m2:    648.5, detection_boundary_cells:    878}
+    - {id:  35, xyz: [   -61.37,   -154.12,   -0.63], detection_m2:       58, detection_boundary_cells:    279}
+    - {id:  36, xyz: [   -67.57,   -150.12,   -0.64], detection_m2:       18, detection_boundary_cells:    115}
+    - {id:  37, xyz: [   -67.17,   -144.92,   -0.63], detection_m2:     16.3, detection_boundary_cells:    138}
+    - {id:  38, xyz: [  -112.37,   -100.52,   -3.53], detection_m2:    693.6, detection_boundary_cells:    791}
+    - {id:  39, xyz: [  -115.97,   -106.52,   -2.87], detection_m2:     56.5, detection_boundary_cells:    502}
+    - {id:  40, xyz: [   -14.37,    -63.92,   -3.55], detection_m2:    169.8, detection_boundary_cells:    849}
+    - {id:  41, xyz: [   -27.57,    -19.72,   -3.67], detection_m2:    378.1, detection_boundary_cells:    356}
+    - {id:  42, xyz: [   -75.17,   -137.72,   -2.68], detection_m2:    311.2, detection_boundary_cells:    288}
+    - {id:  43, xyz: [   -67.37,   -137.72,   -0.92], detection_m2:       12, detection_boundary_cells:     46}
+    - {id:  44, xyz: [   -30.77,   -117.92,   -3.57], detection_m2:    450.4, detection_boundary_cells:    821}
+    - {id:  45, xyz: [   -58.77,   -147.32,   -0.62], detection_m2:     45.9, detection_boundary_cells:    241}
+    - {id:  46, xyz: [   -57.57,   -147.92,   -0.62], detection_m2:     17.8, detection_boundary_cells:     80}
 
-  # i, j, whether the guard region is contained in another (shady) or
-  # not (regular), and how big it is
+  # i, j, whether the guard region G_ij = dD(p_i) n D(p_j) is strictly
+  # contained in another one (shady) or not (regular), and how big it is
   edges_list:
-    - {i:   0, j:   1, type: regular, guard_cells:    278, guard_m2:    11.12}
-    - {i:   0, j:   2, type: regular, guard_cells:    710, guard_m2:     28.4}
-    - {i:   0, j:   3, type: regular, guard_cells:    554, guard_m2:    22.16}
-    - {i:   0, j:   5, type: regular, guard_cells:    520, guard_m2:     20.8}
-    - {i:   0, j:   8, type: regular, guard_cells:    537, guard_m2:    21.48}
-    - {i:   0, j:   9, type: regular, guard_cells:    354, guard_m2:    14.16}
-    - {i:   0, j:  10, type: shady  , guard_cells:    258, guard_m2:    10.32}
-    - {i:   0, j:  21, type: regular, guard_cells:    483, guard_m2:    19.32}
-    - {i:   0, j:  24, type: shady  , guard_cells:     71, guard_m2:     2.84}
-    - {i:   0, j:  26, type: regular, guard_cells:    705, guard_m2:     28.2}
-    - {i:   0, j:  34, type: shady  , guard_cells:    108, guard_m2:     4.32}
-    - {i:   1, j:   2, type: shady  , guard_cells:    140, guard_m2:      5.6}
-    - {i:   1, j:   3, type: shady  , guard_cells:    236, guard_m2:     9.44}
-    - {i:   1, j:   4, type: regular, guard_cells:    361, guard_m2:    14.44}
-    - {i:   1, j:   6, type: regular, guard_cells:    459, guard_m2:    18.36}
-    - {i:   1, j:   7, type: regular, guard_cells:    980, guard_m2:     39.2}
-    - {i:   1, j:   9, type: regular, guard_cells:    806, guard_m2:    32.24}
-    - {i:   1, j:  11, type: shady  , guard_cells:    210, guard_m2:      8.4}
-    - {i:   1, j:  12, type: regular, guard_cells:   1124, guard_m2:    44.96}
-    - {i:   1, j:  14, type: shady  , guard_cells:     58, guard_m2:     2.32}
-    - {i:   1, j:  16, type: regular, guard_cells:    459, guard_m2:    18.36}
-    - {i:   1, j:  18, type: regular, guard_cells:    807, guard_m2:    32.28}
-    - {i:   1, j:  26, type: regular, guard_cells:    680, guard_m2:     27.2}
-    - {i:   1, j:  28, type: regular, guard_cells:    213, guard_m2:     8.52}
-    - {i:   1, j:  30, type: regular, guard_cells:    953, guard_m2:    38.12}
-    - {i:   1, j:  33, type: regular, guard_cells:    422, guard_m2:    16.88}
-    - {i:   1, j:  34, type: shady  , guard_cells:    397, guard_m2:    15.88}
-    - {i:   2, j:   4, type: regular, guard_cells:    532, guard_m2:    21.28}
-    - {i:   2, j:   5, type: regular, guard_cells:    482, guard_m2:    19.28}
-    - {i:   2, j:   8, type: shady  , guard_cells:     89, guard_m2:     3.56}
-    - {i:   2, j:  10, type: regular, guard_cells:   1501, guard_m2:    60.04}
-    - {i:   2, j:  14, type: shady  , guard_cells:    137, guard_m2:     5.48}
-    - {i:   2, j:  24, type: regular, guard_cells:   1269, guard_m2:    50.76}
-    - {i:   2, j:  25, type: shady  , guard_cells:    184, guard_m2:     7.36}
-    - {i:   2, j:  29, type: regular, guard_cells:    474, guard_m2:    18.96}
-    - {i:   2, j:  32, type: regular, guard_cells:    473, guard_m2:    18.92}
-    - {i:   2, j:  33, type: regular, guard_cells:    198, guard_m2:     7.92}
-    - {i:   3, j:   8, type: shady  , guard_cells:    233, guard_m2:     9.32}
-    - {i:   3, j:   9, type: regular, guard_cells:   1196, guard_m2:    47.84}
-    - {i:   3, j:  17, type: regular, guard_cells:    474, guard_m2:    18.96}
-    - {i:   3, j:  21, type: regular, guard_cells:    625, guard_m2:       25}
-    - {i:   3, j:  22, type: regular, guard_cells:    563, guard_m2:    22.52}
-    - {i:   3, j:  26, type: regular, guard_cells:   1146, guard_m2:    45.84}
-    - {i:   3, j:  34, type: regular, guard_cells:    727, guard_m2:    29.08}
-    - {i:   4, j:   6, type: regular, guard_cells:    336, guard_m2:    13.44}
-    - {i:   4, j:  10, type: shady  , guard_cells:    482, guard_m2:    19.28}
-    - {i:   4, j:  11, type: regular, guard_cells:    220, guard_m2:      8.8}
-    - {i:   4, j:  12, type: shady  , guard_cells:     14, guard_m2:     0.56}
-    - {i:   4, j:  14, type: regular, guard_cells:    954, guard_m2:    38.16}
-    - {i:   4, j:  18, type: shady  , guard_cells:    419, guard_m2:    16.76}
-    - {i:   4, j:  20, type: regular, guard_cells:    267, guard_m2:    10.68}
-    - {i:   4, j:  24, type: regular, guard_cells:    610, guard_m2:     24.4}
-    - {i:   4, j:  25, type: regular, guard_cells:    452, guard_m2:    18.08}
-    - {i:   4, j:  29, type: shady  , guard_cells:     72, guard_m2:     2.88}
-    - {i:   4, j:  30, type: regular, guard_cells:    559, guard_m2:    22.36}
-    - {i:   4, j:  33, type: regular, guard_cells:   1259, guard_m2:    50.36}
-    - {i:   5, j:   8, type: regular, guard_cells:    417, guard_m2:    16.68}
-    - {i:   5, j:  10, type: regular, guard_cells:    592, guard_m2:    23.68}
-    - {i:   5, j:  21, type: shady  , guard_cells:     94, guard_m2:     3.76}
-    - {i:   5, j:  24, type: shady  , guard_cells:    386, guard_m2:    15.44}
-    - {i:   6, j:   7, type: shady  , guard_cells:    256, guard_m2:    10.24}
-    - {i:   6, j:  11, type: shady  , guard_cells:    308, guard_m2:    12.32}
-    - {i:   6, j:  12, type: regular, guard_cells:    506, guard_m2:    20.24}
-    - {i:   6, j:  14, type: shady  , guard_cells:    240, guard_m2:      9.6}
-    - {i:   6, j:  18, type: regular, guard_cells:    664, guard_m2:    26.56}
-    - {i:   6, j:  20, type: regular, guard_cells:    325, guard_m2:       13}
-    - {i:   6, j:  30, type: regular, guard_cells:    854, guard_m2:    34.16}
-    - {i:   6, j:  33, type: regular, guard_cells:    632, guard_m2:    25.28}
-    - {i:   6, j:  35, type: shady  , guard_cells:     12, guard_m2:     0.48}
-    - {i:   7, j:   9, type: regular, guard_cells:    639, guard_m2:    25.56}
-    - {i:   7, j:  11, type: shady  , guard_cells:     19, guard_m2:     0.76}
-    - {i:   7, j:  12, type: regular, guard_cells:    852, guard_m2:    34.08}
-    - {i:   7, j:  16, type: regular, guard_cells:    380, guard_m2:     15.2}
-    - {i:   7, j:  18, type: shady  , guard_cells:    188, guard_m2:     7.52}
-    - {i:   7, j:  26, type: regular, guard_cells:    503, guard_m2:    20.12}
-    - {i:   7, j:  28, type: regular, guard_cells:    177, guard_m2:     7.08}
-    - {i:   7, j:  30, type: regular, guard_cells:    739, guard_m2:    29.56}
-    - {i:   7, j:  33, type: shady  , guard_cells:     89, guard_m2:     3.56}
-    - {i:   7, j:  34, type: shady  , guard_cells:    252, guard_m2:    10.08}
-    - {i:   8, j:  21, type: shady  , guard_cells:    339, guard_m2:    13.56}
-    - {i:   9, j:  12, type: regular, guard_cells:    264, guard_m2:    10.56}
-    - {i:   9, j:  16, type: shady  , guard_cells:    249, guard_m2:     9.96}
-    - {i:   9, j:  17, type: regular, guard_cells:    532, guard_m2:    21.28}
-    - {i:   9, j:  21, type: shady  , guard_cells:    386, guard_m2:    15.44}
-    - {i:   9, j:  22, type: regular, guard_cells:    591, guard_m2:    23.64}
-    - {i:   9, j:  26, type: regular, guard_cells:   1549, guard_m2:    61.96}
-    - {i:   9, j:  30, type: shady  , guard_cells:    126, guard_m2:     5.04}
-    - {i:   9, j:  34, type: regular, guard_cells:    813, guard_m2:    32.52}
-    - {i:  10, j:  14, type: shady  , guard_cells:     45, guard_m2:      1.8}
-    - {i:  10, j:  24, type: regular, guard_cells:   1067, guard_m2:    42.68}
-    - {i:  10, j:  29, type: regular, guard_cells:    490, guard_m2:     19.6}
-    - {i:  10, j:  32, type: regular, guard_cells:    409, guard_m2:    16.36}
-    - {i:  11, j:  12, type: shady  , guard_cells:    172, guard_m2:     6.88}
-    - {i:  11, j:  15, type: regular, guard_cells:     71, guard_m2:     2.84}
-    - {i:  11, j:  18, type: regular, guard_cells:    536, guard_m2:    21.44}
-    - {i:  11, j:  20, type: shady  , guard_cells:      6, guard_m2:     0.24}
-    - {i:  11, j:  23, type: regular, guard_cells:     64, guard_m2:     2.56}
-    - {i:  11, j:  30, type: regular, guard_cells:    504, guard_m2:    20.16}
-    - {i:  11, j:  31, type: regular, guard_cells:     93, guard_m2:     3.72}
-    - {i:  11, j:  33, type: regular, guard_cells:    403, guard_m2:    16.12}
-    - {i:  11, j:  35, type: regular, guard_cells:    100, guard_m2:        4}
-    - {i:  12, j:  16, type: regular, guard_cells:    211, guard_m2:     8.44}
-    - {i:  12, j:  18, type: regular, guard_cells:    690, guard_m2:     27.6}
-    - {i:  12, j:  26, type: shady  , guard_cells:    234, guard_m2:     9.36}
-    - {i:  12, j:  28, type: regular, guard_cells:    126, guard_m2:     5.04}
-    - {i:  12, j:  30, type: regular, guard_cells:    910, guard_m2:     36.4}
-    - {i:  12, j:  33, type: shady  , guard_cells:    270, guard_m2:     10.8}
-    - {i:  13, j:  15, type: shady  , guard_cells:      1, guard_m2:     0.04}
-    - {i:  13, j:  19, type: regular, guard_cells:     24, guard_m2:     0.96}
-    - {i:  13, j:  23, type: regular, guard_cells:     79, guard_m2:     3.16}
-    - {i:  13, j:  27, type: regular, guard_cells:    163, guard_m2:     6.52}
-    - {i:  13, j:  31, type: regular, guard_cells:     27, guard_m2:     1.08}
-    - {i:  13, j:  35, type: regular, guard_cells:    148, guard_m2:     5.92}
-    - {i:  14, j:  18, type: shady  , guard_cells:     59, guard_m2:     2.36}
-    - {i:  14, j:  20, type: regular, guard_cells:    246, guard_m2:     9.84}
-    - {i:  14, j:  24, type: regular, guard_cells:    394, guard_m2:    15.76}
-    - {i:  14, j:  25, type: regular, guard_cells:    215, guard_m2:      8.6}
-    - {i:  14, j:  30, type: shady  , guard_cells:    195, guard_m2:      7.8}
-    - {i:  14, j:  33, type: regular, guard_cells:    780, guard_m2:     31.2}
-    - {i:  15, j:  18, type: regular, guard_cells:     63, guard_m2:     2.52}
-    - {i:  15, j:  19, type: regular, guard_cells:      9, guard_m2:     0.36}
-    - {i:  15, j:  23, type: regular, guard_cells:    223, guard_m2:     8.92}
-    - {i:  15, j:  27, type: shady  , guard_cells:     20, guard_m2:      0.8}
-    - {i:  15, j:  31, type: regular, guard_cells:    263, guard_m2:    10.52}
-    - {i:  15, j:  35, type: regular, guard_cells:     85, guard_m2:      3.4}
-    - {i:  16, j:  18, type: shady  , guard_cells:      8, guard_m2:     0.32}
-    - {i:  16, j:  26, type: shady  , guard_cells:    140, guard_m2:      5.6}
-    - {i:  16, j:  28, type: regular, guard_cells:    276, guard_m2:    11.04}
-    - {i:  16, j:  30, type: regular, guard_cells:    189, guard_m2:     7.56}
-    - {i:   1, j:  17, type: shady  , guard_cells:      5, guard_m2:      0.2}
-    - {i:  17, j:  22, type: regular, guard_cells:    450, guard_m2:       18}
-    - {i:  17, j:  26, type: regular, guard_cells:    511, guard_m2:    20.44}
-    - {i:  17, j:  34, type: regular, guard_cells:    391, guard_m2:    15.64}
-    - {i:  18, j:  20, type: shady  , guard_cells:     62, guard_m2:     2.48}
-    - {i:  18, j:  23, type: regular, guard_cells:     51, guard_m2:     2.04}
-    - {i:  18, j:  25, type: shady  , guard_cells:      2, guard_m2:     0.08}
-    - {i:  18, j:  30, type: regular, guard_cells:   1262, guard_m2:    50.48}
-    - {i:  18, j:  31, type: regular, guard_cells:     56, guard_m2:     2.24}
-    - {i:  18, j:  33, type: regular, guard_cells:    729, guard_m2:    29.16}
-    - {i:  18, j:  35, type: shady  , guard_cells:     75, guard_m2:        3}
-    - {i:  19, j:  23, type: regular, guard_cells:      4, guard_m2:     0.16}
-    - {i:  19, j:  31, type: shady  , guard_cells:      7, guard_m2:     0.28}
-    - {i:  19, j:  35, type: regular, guard_cells:      9, guard_m2:     0.36}
-    - {i:  20, j:  25, type: shady  , guard_cells:      3, guard_m2:     0.12}
-    - {i:  20, j:  30, type: shady  , guard_cells:    127, guard_m2:     5.08}
-    - {i:  20, j:  33, type: regular, guard_cells:    307, guard_m2:    12.28}
-    - {i:  21, j:  26, type: regular, guard_cells:    493, guard_m2:    19.72}
-    - {i:  21, j:  34, type: shady  , guard_cells:     30, guard_m2:      1.2}
-    - {i:  22, j:  26, type: regular, guard_cells:    465, guard_m2:     18.6}
-    - {i:  22, j:  34, type: regular, guard_cells:    477, guard_m2:    19.08}
-    - {i:  23, j:  27, type: shady  , guard_cells:     43, guard_m2:     1.72}
-    - {i:  23, j:  31, type: regular, guard_cells:    236, guard_m2:     9.44}
-    - {i:  23, j:  35, type: regular, guard_cells:     93, guard_m2:     3.72}
-    - {i:  24, j:  25, type: shady  , guard_cells:    206, guard_m2:     8.24}
-    - {i:  24, j:  29, type: regular, guard_cells:    501, guard_m2:    20.04}
-    - {i:  24, j:  32, type: regular, guard_cells:    405, guard_m2:     16.2}
-    - {i:  24, j:  33, type: regular, guard_cells:    426, guard_m2:    17.04}
-    - {i:  25, j:  33, type: regular, guard_cells:    314, guard_m2:    12.56}
-    - {i:  26, j:  30, type: shady  , guard_cells:    173, guard_m2:     6.92}
-    - {i:  26, j:  34, type: regular, guard_cells:    866, guard_m2:    34.64}
-    - {i:  27, j:  35, type: regular, guard_cells:    128, guard_m2:     5.12}
-    - {i:  18, j:  28, type: shady  , guard_cells:      8, guard_m2:     0.32}
-    - {i:  28, j:  30, type: shady  , guard_cells:     39, guard_m2:     1.56}
-    - {i:  29, j:  32, type: regular, guard_cells:    146, guard_m2:     5.84}
-    - {i:  30, j:  33, type: regular, guard_cells:    940, guard_m2:     37.6}
-    - {i:  30, j:  35, type: shady  , guard_cells:     32, guard_m2:     1.28}
-    - {i:  31, j:  35, type: regular, guard_cells:     81, guard_m2:     3.24}
+    - {i:   0, j:   1, type: regular, guard_region_cells:    278, guard_region_m2:    11.12}
+    - {i:   0, j:   2, type: regular, guard_region_cells:    710, guard_region_m2:     28.4}
+    - {i:   0, j:   3, type: regular, guard_region_cells:    554, guard_region_m2:    22.16}
+    - {i:   0, j:   5, type: regular, guard_region_cells:    520, guard_region_m2:     20.8}
+    - {i:   0, j:   8, type: regular, guard_region_cells:    537, guard_region_m2:    21.48}
+    - {i:   0, j:   9, type: regular, guard_region_cells:    354, guard_region_m2:    14.16}
+    - {i:   0, j:  10, type: shady  , guard_region_cells:    258, guard_region_m2:    10.32}
+    - {i:   0, j:  21, type: regular, guard_region_cells:    483, guard_region_m2:    19.32}
+    - {i:   0, j:  24, type: shady  , guard_region_cells:     71, guard_region_m2:     2.84}
+    - {i:   0, j:  26, type: regular, guard_region_cells:    705, guard_region_m2:     28.2}
+    - {i:   0, j:  34, type: shady  , guard_region_cells:    108, guard_region_m2:     4.32}
+    - {i:   0, j:  40, type: shady  , guard_region_cells:     64, guard_region_m2:     2.56}
+    - {i:   1, j:   2, type: regular, guard_region_cells:    140, guard_region_m2:      5.6}
+    - {i:   1, j:   3, type: regular, guard_region_cells:    236, guard_region_m2:     9.44}
+    - {i:   1, j:   4, type: regular, guard_region_cells:    361, guard_region_m2:    14.44}
+    - {i:   1, j:   6, type: regular, guard_region_cells:    459, guard_region_m2:    18.36}
+    - {i:   1, j:   7, type: regular, guard_region_cells:    980, guard_region_m2:     39.2}
+    - {i:   1, j:   9, type: regular, guard_region_cells:    806, guard_region_m2:    32.24}
+    - {i:   1, j:  11, type: shady  , guard_region_cells:    210, guard_region_m2:      8.4}
+    - {i:   1, j:  12, type: regular, guard_region_cells:   1124, guard_region_m2:    44.96}
+    - {i:   1, j:  14, type: shady  , guard_region_cells:     58, guard_region_m2:     2.32}
+    - {i:   1, j:  16, type: regular, guard_region_cells:    459, guard_region_m2:    18.36}
+    - {i:   1, j:  18, type: regular, guard_region_cells:    807, guard_region_m2:    32.28}
+    - {i:   1, j:  26, type: regular, guard_region_cells:    680, guard_region_m2:     27.2}
+    - {i:   1, j:  28, type: regular, guard_region_cells:    213, guard_region_m2:     8.52}
+    - {i:   1, j:  30, type: regular, guard_region_cells:    953, guard_region_m2:    38.12}
+    - {i:   1, j:  33, type: regular, guard_region_cells:    422, guard_region_m2:    16.88}
+    - {i:   1, j:  34, type: shady  , guard_region_cells:    397, guard_region_m2:    15.88}
+    - {i:   1, j:  40, type: shady  , guard_region_cells:     68, guard_region_m2:     2.72}
+    - {i:   1, j:  44, type: regular, guard_region_cells:    852, guard_region_m2:    34.08}
+    - {i:   2, j:   4, type: regular, guard_region_cells:    532, guard_region_m2:    21.28}
+    - {i:   2, j:   5, type: regular, guard_region_cells:    482, guard_region_m2:    19.28}
+    - {i:   2, j:   8, type: shady  , guard_region_cells:     89, guard_region_m2:     3.56}
+    - {i:   2, j:  10, type: regular, guard_region_cells:   1501, guard_region_m2:    60.04}
+    - {i:   2, j:  14, type: shady  , guard_region_cells:    137, guard_region_m2:     5.48}
+    - {i:   2, j:  24, type: regular, guard_region_cells:   1269, guard_region_m2:    50.76}
+    - {i:   2, j:  25, type: shady  , guard_region_cells:    184, guard_region_m2:     7.36}
+    - {i:   2, j:  29, type: regular, guard_region_cells:    474, guard_region_m2:    18.96}
+    - {i:   2, j:  32, type: regular, guard_region_cells:    473, guard_region_m2:    18.92}
+    - {i:   2, j:  33, type: shady  , guard_region_cells:    198, guard_region_m2:     7.92}
+    - {i:   2, j:  38, type: regular, guard_region_cells:    392, guard_region_m2:    15.68}
+    - {i:   2, j:  39, type: shady  , guard_region_cells:    128, guard_region_m2:     5.12}
+    - {i:   3, j:   8, type: shady  , guard_region_cells:    233, guard_region_m2:     9.32}
+    - {i:   3, j:   9, type: regular, guard_region_cells:   1196, guard_region_m2:    47.84}
+    - {i:   3, j:  17, type: regular, guard_region_cells:    474, guard_region_m2:    18.96}
+    - {i:   3, j:  21, type: regular, guard_region_cells:    625, guard_region_m2:       25}
+    - {i:   3, j:  22, type: regular, guard_region_cells:    563, guard_region_m2:    22.52}
+    - {i:   3, j:  26, type: regular, guard_region_cells:   1146, guard_region_m2:    45.84}
+    - {i:   3, j:  34, type: regular, guard_region_cells:    727, guard_region_m2:    29.08}
+    - {i:   3, j:  40, type: regular, guard_region_cells:    700, guard_region_m2:       28}
+    - {i:   3, j:  41, type: regular, guard_region_cells:    361, guard_region_m2:    14.44}
+    - {i:   4, j:   6, type: regular, guard_region_cells:    336, guard_region_m2:    13.44}
+    - {i:   4, j:  10, type: regular, guard_region_cells:    482, guard_region_m2:    19.28}
+    - {i:   4, j:  11, type: regular, guard_region_cells:    220, guard_region_m2:      8.8}
+    - {i:   4, j:  12, type: shady  , guard_region_cells:     14, guard_region_m2:     0.56}
+    - {i:   4, j:  14, type: regular, guard_region_cells:    954, guard_region_m2:    38.16}
+    - {i:   4, j:  18, type: regular, guard_region_cells:    419, guard_region_m2:    16.76}
+    - {i:   4, j:  20, type: regular, guard_region_cells:    267, guard_region_m2:    10.68}
+    - {i:   4, j:  24, type: regular, guard_region_cells:    610, guard_region_m2:     24.4}
+    - {i:   4, j:  25, type: regular, guard_region_cells:    452, guard_region_m2:    18.08}
+    - {i:   4, j:  29, type: shady  , guard_region_cells:     72, guard_region_m2:     2.88}
+    - {i:   4, j:  30, type: regular, guard_region_cells:    559, guard_region_m2:    22.36}
+    - {i:   4, j:  33, type: regular, guard_region_cells:   1259, guard_region_m2:    50.36}
+    - {i:   4, j:  38, type: regular, guard_region_cells:    813, guard_region_m2:    32.52}
+    - {i:   4, j:  39, type: regular, guard_region_cells:    460, guard_region_m2:     18.4}
+    - {i:   4, j:  42, type: regular, guard_region_cells:    272, guard_region_m2:    10.88}
+    - {i:   5, j:   8, type: regular, guard_region_cells:    417, guard_region_m2:    16.68}
+    - {i:   5, j:  10, type: regular, guard_region_cells:    592, guard_region_m2:    23.68}
+    - {i:   5, j:  21, type: shady  , guard_region_cells:     94, guard_region_m2:     3.76}
+    - {i:   5, j:  24, type: shady  , guard_region_cells:    386, guard_region_m2:    15.44}
+    - {i:   6, j:   7, type: shady  , guard_region_cells:    256, guard_region_m2:    10.24}
+    - {i:   6, j:  11, type: regular, guard_region_cells:    308, guard_region_m2:    12.32}
+    - {i:   6, j:  12, type: regular, guard_region_cells:    506, guard_region_m2:    20.24}
+    - {i:   6, j:  14, type: regular, guard_region_cells:    240, guard_region_m2:      9.6}
+    - {i:   6, j:  18, type: regular, guard_region_cells:    664, guard_region_m2:    26.56}
+    - {i:   6, j:  20, type: regular, guard_region_cells:    325, guard_region_m2:       13}
+    - {i:   6, j:  30, type: regular, guard_region_cells:    854, guard_region_m2:    34.16}
+    - {i:   6, j:  33, type: regular, guard_region_cells:    632, guard_region_m2:    25.28}
+    - {i:   6, j:  35, type: shady  , guard_region_cells:     12, guard_region_m2:     0.48}
+    - {i:   6, j:  42, type: regular, guard_region_cells:    296, guard_region_m2:    11.84}
+    - {i:   6, j:  43, type: shady  , guard_region_cells:      8, guard_region_m2:     0.32}
+    - {i:   6, j:  44, type: shady  , guard_region_cells:    117, guard_region_m2:     4.68}
+    - {i:   7, j:   9, type: regular, guard_region_cells:    639, guard_region_m2:    25.56}
+    - {i:   7, j:  11, type: shady  , guard_region_cells:     19, guard_region_m2:     0.76}
+    - {i:   7, j:  12, type: regular, guard_region_cells:    852, guard_region_m2:    34.08}
+    - {i:   7, j:  16, type: regular, guard_region_cells:    380, guard_region_m2:     15.2}
+    - {i:   7, j:  18, type: shady  , guard_region_cells:    188, guard_region_m2:     7.52}
+    - {i:   7, j:  26, type: regular, guard_region_cells:    503, guard_region_m2:    20.12}
+    - {i:   7, j:  28, type: regular, guard_region_cells:    177, guard_region_m2:     7.08}
+    - {i:   7, j:  30, type: regular, guard_region_cells:    739, guard_region_m2:    29.56}
+    - {i:   7, j:  33, type: shady  , guard_region_cells:     89, guard_region_m2:     3.56}
+    - {i:   7, j:  34, type: shady  , guard_region_cells:    252, guard_region_m2:    10.08}
+    - {i:   7, j:  44, type: regular, guard_region_cells:    860, guard_region_m2:     34.4}
+    - {i:   8, j:  21, type: shady  , guard_region_cells:    339, guard_region_m2:    13.56}
+    - {i:   9, j:  12, type: regular, guard_region_cells:    264, guard_region_m2:    10.56}
+    - {i:   9, j:  16, type: shady  , guard_region_cells:    249, guard_region_m2:     9.96}
+    - {i:   9, j:  17, type: regular, guard_region_cells:    532, guard_region_m2:    21.28}
+    - {i:   9, j:  21, type: shady  , guard_region_cells:    386, guard_region_m2:    15.44}
+    - {i:   9, j:  22, type: regular, guard_region_cells:    591, guard_region_m2:    23.64}
+    - {i:   9, j:  26, type: regular, guard_region_cells:   1549, guard_region_m2:    61.96}
+    - {i:   9, j:  30, type: shady  , guard_region_cells:    126, guard_region_m2:     5.04}
+    - {i:   9, j:  34, type: regular, guard_region_cells:    813, guard_region_m2:    32.52}
+    - {i:   9, j:  40, type: regular, guard_region_cells:    757, guard_region_m2:    30.28}
+    - {i:   9, j:  41, type: shady  , guard_region_cells:    193, guard_region_m2:     7.72}
+    - {i:   9, j:  44, type: regular, guard_region_cells:    387, guard_region_m2:    15.48}
+    - {i:  10, j:  14, type: shady  , guard_region_cells:     45, guard_region_m2:      1.8}
+    - {i:  10, j:  24, type: regular, guard_region_cells:   1067, guard_region_m2:    42.68}
+    - {i:  10, j:  29, type: regular, guard_region_cells:    490, guard_region_m2:     19.6}
+    - {i:  10, j:  32, type: regular, guard_region_cells:    409, guard_region_m2:    16.36}
+    - {i:  10, j:  38, type: shady  , guard_region_cells:    240, guard_region_m2:      9.6}
+    - {i:  11, j:  12, type: shady  , guard_region_cells:    172, guard_region_m2:     6.88}
+    - {i:  11, j:  15, type: regular, guard_region_cells:     71, guard_region_m2:     2.84}
+    - {i:  11, j:  18, type: regular, guard_region_cells:    536, guard_region_m2:    21.44}
+    - {i:  11, j:  20, type: shady  , guard_region_cells:      6, guard_region_m2:     0.24}
+    - {i:  11, j:  23, type: regular, guard_region_cells:     64, guard_region_m2:     2.56}
+    - {i:  11, j:  30, type: regular, guard_region_cells:    504, guard_region_m2:    20.16}
+    - {i:  11, j:  31, type: regular, guard_region_cells:     93, guard_region_m2:     3.72}
+    - {i:  11, j:  33, type: regular, guard_region_cells:    403, guard_region_m2:    16.12}
+    - {i:  11, j:  35, type: regular, guard_region_cells:    100, guard_region_m2:        4}
+    - {i:  11, j:  36, type: regular, guard_region_cells:     47, guard_region_m2:     1.88}
+    - {i:  11, j:  37, type: regular, guard_region_cells:     28, guard_region_m2:     1.12}
+    - {i:  11, j:  42, type: shady  , guard_region_cells:     15, guard_region_m2:      0.6}
+    - {i:  11, j:  43, type: regular, guard_region_cells:     59, guard_region_m2:     2.36}
+    - {i:  11, j:  45, type: regular, guard_region_cells:     63, guard_region_m2:     2.52}
+    - {i:  11, j:  46, type: shady  , guard_region_cells:     36, guard_region_m2:     1.44}
+    - {i:  12, j:  16, type: regular, guard_region_cells:    211, guard_region_m2:     8.44}
+    - {i:  12, j:  18, type: regular, guard_region_cells:    690, guard_region_m2:     27.6}
+    - {i:  12, j:  26, type: shady  , guard_region_cells:    234, guard_region_m2:     9.36}
+    - {i:  12, j:  28, type: regular, guard_region_cells:    126, guard_region_m2:     5.04}
+    - {i:  12, j:  30, type: regular, guard_region_cells:    910, guard_region_m2:     36.4}
+    - {i:  12, j:  33, type: regular, guard_region_cells:    270, guard_region_m2:     10.8}
+    - {i:  12, j:  44, type: regular, guard_region_cells:    671, guard_region_m2:    26.84}
+    - {i:  13, j:  15, type: shady  , guard_region_cells:      1, guard_region_m2:     0.04}
+    - {i:  13, j:  19, type: regular, guard_region_cells:     24, guard_region_m2:     0.96}
+    - {i:  13, j:  23, type: regular, guard_region_cells:     79, guard_region_m2:     3.16}
+    - {i:  13, j:  27, type: regular, guard_region_cells:    163, guard_region_m2:     6.52}
+    - {i:  13, j:  31, type: regular, guard_region_cells:     27, guard_region_m2:     1.08}
+    - {i:  13, j:  35, type: regular, guard_region_cells:    148, guard_region_m2:     5.92}
+    - {i:  13, j:  37, type: shady  , guard_region_cells:     73, guard_region_m2:     2.92}
+    - {i:  14, j:  18, type: shady  , guard_region_cells:     59, guard_region_m2:     2.36}
+    - {i:  14, j:  20, type: regular, guard_region_cells:    246, guard_region_m2:     9.84}
+    - {i:  14, j:  24, type: regular, guard_region_cells:    394, guard_region_m2:    15.76}
+    - {i:  14, j:  25, type: regular, guard_region_cells:    215, guard_region_m2:      8.6}
+    - {i:  14, j:  30, type: regular, guard_region_cells:    195, guard_region_m2:      7.8}
+    - {i:  14, j:  33, type: regular, guard_region_cells:    780, guard_region_m2:     31.2}
+    - {i:  14, j:  38, type: regular, guard_region_cells:    441, guard_region_m2:    17.64}
+    - {i:  14, j:  39, type: regular, guard_region_cells:    129, guard_region_m2:     5.16}
+    - {i:  14, j:  42, type: regular, guard_region_cells:    241, guard_region_m2:     9.64}
+    - {i:  15, j:  18, type: regular, guard_region_cells:     63, guard_region_m2:     2.52}
+    - {i:  15, j:  19, type: regular, guard_region_cells:      9, guard_region_m2:     0.36}
+    - {i:  15, j:  23, type: regular, guard_region_cells:    223, guard_region_m2:     8.92}
+    - {i:  15, j:  27, type: shady  , guard_region_cells:     20, guard_region_m2:      0.8}
+    - {i:  15, j:  31, type: regular, guard_region_cells:    263, guard_region_m2:    10.52}
+    - {i:  15, j:  35, type: regular, guard_region_cells:     85, guard_region_m2:      3.4}
+    - {i:  15, j:  36, type: regular, guard_region_cells:     90, guard_region_m2:      3.6}
+    - {i:  15, j:  37, type: shady  , guard_region_cells:     60, guard_region_m2:      2.4}
+    - {i:  15, j:  45, type: regular, guard_region_cells:    242, guard_region_m2:     9.68}
+    - {i:  15, j:  46, type: shady  , guard_region_cells:     69, guard_region_m2:     2.76}
+    - {i:  16, j:  18, type: shady  , guard_region_cells:      8, guard_region_m2:     0.32}
+    - {i:  16, j:  26, type: shady  , guard_region_cells:    140, guard_region_m2:      5.6}
+    - {i:  16, j:  28, type: regular, guard_region_cells:    276, guard_region_m2:    11.04}
+    - {i:  16, j:  30, type: regular, guard_region_cells:    189, guard_region_m2:     7.56}
+    - {i:  16, j:  44, type: regular, guard_region_cells:    360, guard_region_m2:     14.4}
+    - {i:   1, j:  17, type: shady  , guard_region_cells:      5, guard_region_m2:      0.2}
+    - {i:  17, j:  22, type: regular, guard_region_cells:    450, guard_region_m2:       18}
+    - {i:  17, j:  26, type: regular, guard_region_cells:    511, guard_region_m2:    20.44}
+    - {i:  17, j:  34, type: regular, guard_region_cells:    391, guard_region_m2:    15.64}
+    - {i:  17, j:  40, type: regular, guard_region_cells:    456, guard_region_m2:    18.24}
+    - {i:  18, j:  20, type: shady  , guard_region_cells:     62, guard_region_m2:     2.48}
+    - {i:  18, j:  23, type: regular, guard_region_cells:     51, guard_region_m2:     2.04}
+    - {i:  18, j:  25, type: shady  , guard_region_cells:      2, guard_region_m2:     0.08}
+    - {i:  18, j:  30, type: regular, guard_region_cells:   1262, guard_region_m2:    50.48}
+    - {i:  18, j:  31, type: regular, guard_region_cells:     56, guard_region_m2:     2.24}
+    - {i:  18, j:  33, type: regular, guard_region_cells:    729, guard_region_m2:    29.16}
+    - {i:  18, j:  35, type: regular, guard_region_cells:     75, guard_region_m2:        3}
+    - {i:  18, j:  36, type: shady  , guard_region_cells:     29, guard_region_m2:     1.16}
+    - {i:  18, j:  37, type: shady  , guard_region_cells:      6, guard_region_m2:     0.24}
+    - {i:  18, j:  38, type: shady  , guard_region_cells:     51, guard_region_m2:     2.04}
+    - {i:  18, j:  42, type: shady  , guard_region_cells:     59, guard_region_m2:     2.36}
+    - {i:  18, j:  43, type: shady  , guard_region_cells:     42, guard_region_m2:     1.68}
+    - {i:  18, j:  44, type: shady  , guard_region_cells:      8, guard_region_m2:     0.32}
+    - {i:  18, j:  45, type: regular, guard_region_cells:     48, guard_region_m2:     1.92}
+    - {i:  18, j:  46, type: shady  , guard_region_cells:     38, guard_region_m2:     1.52}
+    - {i:  19, j:  23, type: regular, guard_region_cells:      4, guard_region_m2:     0.16}
+    - {i:  19, j:  31, type: shady  , guard_region_cells:      7, guard_region_m2:     0.28}
+    - {i:  19, j:  35, type: regular, guard_region_cells:      9, guard_region_m2:     0.36}
+    - {i:  19, j:  37, type: shady  , guard_region_cells:      1, guard_region_m2:     0.04}
+    - {i:  19, j:  45, type: shady  , guard_region_cells:      8, guard_region_m2:     0.32}
+    - {i:  20, j:  25, type: shady  , guard_region_cells:      3, guard_region_m2:     0.12}
+    - {i:  20, j:  30, type: shady  , guard_region_cells:    127, guard_region_m2:     5.08}
+    - {i:  20, j:  33, type: regular, guard_region_cells:    307, guard_region_m2:    12.28}
+    - {i:  20, j:  38, type: shady  , guard_region_cells:     11, guard_region_m2:     0.44}
+    - {i:  20, j:  42, type: regular, guard_region_cells:    269, guard_region_m2:    10.76}
+    - {i:  21, j:  26, type: regular, guard_region_cells:    493, guard_region_m2:    19.72}
+    - {i:  21, j:  34, type: shady  , guard_region_cells:     30, guard_region_m2:      1.2}
+    - {i:  21, j:  40, type: shady  , guard_region_cells:     13, guard_region_m2:     0.52}
+    - {i:  21, j:  41, type: regular, guard_region_cells:    345, guard_region_m2:     13.8}
+    - {i:  22, j:  26, type: regular, guard_region_cells:    465, guard_region_m2:     18.6}
+    - {i:  22, j:  34, type: regular, guard_region_cells:    477, guard_region_m2:    19.08}
+    - {i:  22, j:  40, type: regular, guard_region_cells:    458, guard_region_m2:    18.32}
+    - {i:  23, j:  27, type: shady  , guard_region_cells:     43, guard_region_m2:     1.72}
+    - {i:  23, j:  31, type: regular, guard_region_cells:    236, guard_region_m2:     9.44}
+    - {i:  23, j:  35, type: regular, guard_region_cells:     93, guard_region_m2:     3.72}
+    - {i:  23, j:  36, type: regular, guard_region_cells:    105, guard_region_m2:      4.2}
+    - {i:  23, j:  37, type: regular, guard_region_cells:    157, guard_region_m2:     6.28}
+    - {i:  23, j:  45, type: regular, guard_region_cells:    254, guard_region_m2:    10.16}
+    - {i:  23, j:  46, type: shady  , guard_region_cells:     77, guard_region_m2:     3.08}
+    - {i:  24, j:  25, type: regular, guard_region_cells:    206, guard_region_m2:     8.24}
+    - {i:  24, j:  29, type: regular, guard_region_cells:    501, guard_region_m2:    20.04}
+    - {i:  24, j:  32, type: regular, guard_region_cells:    405, guard_region_m2:     16.2}
+    - {i:  24, j:  33, type: regular, guard_region_cells:    426, guard_region_m2:    17.04}
+    - {i:  24, j:  38, type: regular, guard_region_cells:    496, guard_region_m2:    19.84}
+    - {i:  24, j:  39, type: regular, guard_region_cells:    342, guard_region_m2:    13.68}
+    - {i:  25, j:  33, type: regular, guard_region_cells:    314, guard_region_m2:    12.56}
+    - {i:  25, j:  38, type: regular, guard_region_cells:    358, guard_region_m2:    14.32}
+    - {i:  25, j:  39, type: regular, guard_region_cells:     47, guard_region_m2:     1.88}
+    - {i:  25, j:  42, type: shady  , guard_region_cells:     13, guard_region_m2:     0.52}
+    - {i:  26, j:  30, type: shady  , guard_region_cells:    173, guard_region_m2:     6.92}
+    - {i:  26, j:  34, type: regular, guard_region_cells:    866, guard_region_m2:    34.64}
+    - {i:  26, j:  40, type: regular, guard_region_cells:    781, guard_region_m2:    31.24}
+    - {i:  26, j:  41, type: shady  , guard_region_cells:    298, guard_region_m2:    11.92}
+    - {i:  26, j:  44, type: regular, guard_region_cells:    294, guard_region_m2:    11.76}
+    - {i:  27, j:  35, type: regular, guard_region_cells:    128, guard_region_m2:     5.12}
+    - {i:  27, j:  37, type: shady  , guard_region_cells:     40, guard_region_m2:      1.6}
+    - {i:  27, j:  45, type: shady  , guard_region_cells:     18, guard_region_m2:     0.72}
+    - {i:  18, j:  28, type: shady  , guard_region_cells:      8, guard_region_m2:     0.32}
+    - {i:  28, j:  30, type: shady  , guard_region_cells:     39, guard_region_m2:     1.56}
+    - {i:  28, j:  44, type: regular, guard_region_cells:    190, guard_region_m2:      7.6}
+    - {i:  29, j:  32, type: regular, guard_region_cells:    146, guard_region_m2:     5.84}
+    - {i:  30, j:  33, type: regular, guard_region_cells:    940, guard_region_m2:     37.6}
+    - {i:  30, j:  35, type: shady  , guard_region_cells:     32, guard_region_m2:     1.28}
+    - {i:  30, j:  38, type: shady  , guard_region_cells:     79, guard_region_m2:     3.16}
+    - {i:  30, j:  42, type: shady  , guard_region_cells:    155, guard_region_m2:      6.2}
+    - {i:  30, j:  43, type: shady  , guard_region_cells:     23, guard_region_m2:     0.92}
+    - {i:  30, j:  44, type: regular, guard_region_cells:    444, guard_region_m2:    17.76}
+    - {i:  31, j:  35, type: regular, guard_region_cells:     81, guard_region_m2:     3.24}
+    - {i:  31, j:  36, type: regular, guard_region_cells:    125, guard_region_m2:        5}
+    - {i:  31, j:  37, type: shady  , guard_region_cells:     88, guard_region_m2:     3.52}
+    - {i:  31, j:  45, type: regular, guard_region_cells:    241, guard_region_m2:     9.64}
+    - {i:  31, j:  46, type: shady  , guard_region_cells:     89, guard_region_m2:     3.56}
+    - {i:  33, j:  38, type: regular, guard_region_cells:    606, guard_region_m2:    24.24}
+    - {i:  33, j:  39, type: regular, guard_region_cells:    192, guard_region_m2:     7.68}
+    - {i:  33, j:  42, type: regular, guard_region_cells:    310, guard_region_m2:     12.4}
+    - {i:  34, j:  40, type: regular, guard_region_cells:    620, guard_region_m2:     24.8}
+    - {i:  34, j:  44, type: shady  , guard_region_cells:     43, guard_region_m2:     1.72}
+    - {i:  35, j:  36, type: regular, guard_region_cells:     15, guard_region_m2:      0.6}
+    - {i:  35, j:  37, type: shady  , guard_region_cells:     48, guard_region_m2:     1.92}
+    - {i:  35, j:  43, type: shady  , guard_region_cells:     13, guard_region_m2:     0.52}
+    - {i:  35, j:  45, type: shady  , guard_region_cells:     61, guard_region_m2:     2.44}
+    - {i:  36, j:  37, type: regular, guard_region_cells:     28, guard_region_m2:     1.12}
+    - {i:  36, j:  45, type: regular, guard_region_cells:     99, guard_region_m2:     3.96}
+    - {i:  36, j:  46, type: shady  , guard_region_cells:     42, guard_region_m2:     1.68}
+    - {i:  37, j:  45, type: shady  , guard_region_cells:     65, guard_region_m2:      2.6}
+    - {i:  38, j:  39, type: regular, guard_region_cells:    386, guard_region_m2:    15.44}
+    - {i:  38, j:  42, type: shady  , guard_region_cells:      9, guard_region_m2:     0.36}
+    - {i:   0, j:  41, type: shady  , guard_region_cells:    100, guard_region_m2:        4}
+    - {i:   1, j:  42, type: shady  , guard_region_cells:      4, guard_region_m2:     0.16}
+    - {i:  45, j:  46, type: regular, guard_region_cells:     73, guard_region_m2:     2.92}
 
 routes:
-  # Shortest path for the ground robot over the walkable surface,
+  # Shortest path for the platform over the walkable surface,
   # between every pair of vertices it can reach. Lattice paths at the
   # cell size, so they overestimate a smoothed path by a few per cent.
-  reachable_pairs: 630
+  reachable_pairs: 1081
   unreachable_pairs: 0
   speed_m_s: 1
-  polylines_for_graph_edges: 167   # the walked path per edge, in the npz
+  polylines_for_graph_edges: 258   # the walked path per edge, in the npz
   columns: [i, j, distance_m, time_s]
   values:
     - [  0,   1,    59.6,    59.6]
@@ -322,6 +428,17 @@ routes:
     - [  0,  33,    86.7,    86.7]
     - [  0,  34,    62.4,    62.4]
     - [  0,  35,   115.3,   115.3]
+    - [  0,  36,   107.8,   107.8]
+    - [  0,  37,   106.2,   106.2]
+    - [  0,  38,    71.4,    71.4]
+    - [  0,  39,    79.6,    79.6]
+    - [  0,  40,    62.5,    62.5]
+    - [  0,  41,      94,      94]
+    - [  0,  42,    93.2,    93.2]
+    - [  0,  43,    94.9,    94.9]
+    - [  0,  44,    87.3,    87.3]
+    - [  0,  45,   105.9,   105.9]
+    - [  0,  46,   107.4,   107.4]
     - [  1,   2,    61.5,    61.5]
     - [  1,   3,    67.3,    67.3]
     - [  1,   4,    49.8,    49.8]
@@ -356,6 +473,17 @@ routes:
     - [  1,  33,      57,      57]
     - [  1,  34,    45.3,    45.3]
     - [  1,  35,    66.6,    66.6]
+    - [  1,  36,    59.1,    59.1]
+    - [  1,  37,    57.5,    57.5]
+    - [  1,  38,    67.9,    67.9]
+    - [  1,  39,    75.5,    75.5]
+    - [  1,  40,    52.2,    52.2]
+    - [  1,  41,    91.2,    91.2]
+    - [  1,  42,    49.2,    49.2]
+    - [  1,  43,    47.1,    47.1]
+    - [  1,  44,    28.3,    28.3]
+    - [  1,  45,    56.8,    56.8]
+    - [  1,  46,    58.2,    58.2]
     - [  2,   3,    96.7,    96.7]
     - [  2,   4,    39.7,    39.7]
     - [  2,   5,    36.2,    36.2]
@@ -389,6 +517,17 @@ routes:
     - [  2,  33,    57.9,    57.9]
     - [  2,  34,    83.9,    83.9]
     - [  2,  35,   105.8,   105.8]
+    - [  2,  36,    98.3,    98.3]
+    - [  2,  37,    96.7,    96.7]
+    - [  2,  38,    36.8,    36.8]
+    - [  2,  39,      45,      45]
+    - [  2,  40,    87.9,    87.9]
+    - [  2,  41,   120.6,   120.6]
+    - [  2,  42,    81.5,    81.5]
+    - [  2,  43,    85.5,    85.5]
+    - [  2,  44,    89.8,    89.8]
+    - [  2,  45,    96.5,    96.5]
+    - [  2,  46,    97.9,    97.9]
     - [  3,   4,   109.6,   109.6]
     - [  3,   5,   107.2,   107.2]
     - [  3,   6,   102.3,   102.3]
@@ -421,6 +560,17 @@ routes:
     - [  3,  33,   117.1,   117.1]
     - [  3,  34,      33,      33]
     - [  3,  35,   133.9,   133.9]
+    - [  3,  36,   126.3,   126.3]
+    - [  3,  37,   124.8,   124.8]
+    - [  3,  38,   122.3,   122.3]
+    - [  3,  39,   129.8,   129.8]
+    - [  3,  40,    29.3,    29.3]
+    - [  3,  41,    31.4,    31.4]
+    - [  3,  42,   116.5,   116.5]
+    - [  3,  43,   114.3,   114.3]
+    - [  3,  44,      78,      78]
+    - [  3,  45,   124.1,   124.1]
+    - [  3,  46,   125.5,   125.5]
     - [  4,   5,    75.9,    75.9]
     - [  4,   6,    26.4,    26.4]
     - [  4,   7,    60.4,    60.4]
@@ -452,6 +602,17 @@ routes:
     - [  4,  33,    18.2,    18.2]
     - [  4,  34,      95,      95]
     - [  4,  35,    72.1,    72.1]
+    - [  4,  36,    64.6,    64.6]
+    - [  4,  37,    63.1,    63.1]
+    - [  4,  38,    30.8,    30.8]
+    - [  4,  39,      37,      37]
+    - [  4,  40,   100.8,   100.8]
+    - [  4,  41,   133.5,   133.5]
+    - [  4,  42,    41.8,    41.8]
+    - [  4,  43,    51.8,    51.8]
+    - [  4,  44,    70.9,    70.9]
+    - [  4,  45,    62.8,    62.8]
+    - [  4,  46,    64.3,    64.3]
     - [  5,   6,    98.9,    98.9]
     - [  5,   7,   104.7,   104.7]
     - [  5,   8,    32.7,    32.7]
@@ -482,6 +643,17 @@ routes:
     - [  5,  33,    94.1,    94.1]
     - [  5,  34,    99.5,    99.5]
     - [  5,  35,     142,     142]
+    - [  5,  36,   134.5,   134.5]
+    - [  5,  37,     133,     133]
+    - [  5,  38,    72.2,    72.2]
+    - [  5,  39,    80.4,    80.4]
+    - [  5,  40,    99.6,    99.6]
+    - [  5,  41,   131.1,   131.1]
+    - [  5,  42,   117.7,   117.7]
+    - [  5,  43,   121.7,   121.7]
+    - [  5,  44,   114.1,   114.1]
+    - [  5,  45,   132.7,   132.7]
+    - [  5,  46,   134.2,   134.2]
     - [  6,   7,    43.3,    43.3]
     - [  6,   8,   108.1,   108.1]
     - [  6,   9,    70.1,    70.1]
@@ -511,6 +683,17 @@ routes:
     - [  6,  33,    27.3,    27.3]
     - [  6,  34,    80.2,    80.2]
     - [  6,  35,    45.7,    45.7]
+    - [  6,  36,    38.2,    38.2]
+    - [  6,  37,    36.7,    36.7]
+    - [  6,  38,    50.9,    50.9]
+    - [  6,  39,      51,      51]
+    - [  6,  40,    87.1,    87.1]
+    - [  6,  41,   126.2,   126.2]
+    - [  6,  42,    22.2,    22.2]
+    - [  6,  43,    25.4,    25.4]
+    - [  6,  44,      49,      49]
+    - [  6,  45,    36.4,    36.4]
+    - [  6,  46,    37.9,    37.9]
     - [  7,   8,   112.3,   112.3]
     - [  7,   9,    43.5,    43.5]
     - [  7,  10,   101.8,   101.8]
@@ -539,6 +722,17 @@ routes:
     - [  7,  33,    62.8,    62.8]
     - [  7,  34,    50.2,    50.2]
     - [  7,  35,    66.5,    66.5]
+    - [  7,  36,      59,      59]
+    - [  7,  37,    57.4,    57.4]
+    - [  7,  38,    85.7,    85.7]
+    - [  7,  39,    89.3,    89.3]
+    - [  7,  40,    60.5,    60.5]
+    - [  7,  41,    99.6,    99.6]
+    - [  7,  42,    52.8,    52.8]
+    - [  7,  43,      47,      47]
+    - [  7,  44,    10.7,    10.7]
+    - [  7,  45,    56.7,    56.7]
+    - [  7,  46,    58.1,    58.1]
     - [  8,   9,    78.9,    78.9]
     - [  8,  10,    85.3,    85.3]
     - [  8,  11,   128.8,   128.8]
@@ -566,6 +760,17 @@ routes:
     - [  8,  33,   115.9,   115.9]
     - [  8,  34,    87.1,    87.1]
     - [  8,  35,   149.6,   149.6]
+    - [  8,  36,   142.1,   142.1]
+    - [  8,  37,   140.5,   140.5]
+    - [  8,  38,   100.6,   100.6]
+    - [  8,  39,   108.8,   108.8]
+    - [  8,  40,    87.2,    87.2]
+    - [  8,  41,   118.8,   118.8]
+    - [  8,  42,   126.1,   126.1]
+    - [  8,  43,   129.3,   129.3]
+    - [  8,  44,   121.7,   121.7]
+    - [  8,  45,   140.3,   140.3]
+    - [  8,  46,   141.7,   141.7]
     - [  9,  10,      99,      99]
     - [  9,  11,    80.1,    80.1]
     - [  9,  12,    52.5,    52.5]
@@ -592,6 +797,17 @@ routes:
     - [  9,  33,    91.6,    91.6]
     - [  9,  34,    11.1,    11.1]
     - [  9,  35,   101.7,   101.7]
+    - [  9,  36,    94.2,    94.2]
+    - [  9,  37,    92.6,    92.6]
+    - [  9,  38,    96.8,    96.8]
+    - [  9,  39,   104.3,   104.3]
+    - [  9,  40,      17,      17]
+    - [  9,  41,    56.1,    56.1]
+    - [  9,  42,    84.3,    84.3]
+    - [  9,  43,    82.2,    82.2]
+    - [  9,  44,    45.8,    45.8]
+    - [  9,  45,    91.9,    91.9]
+    - [  9,  46,    93.4,    93.4]
     - [ 10,  11,    98.2,    98.2]
     - [ 10,  12,   107.6,   107.6]
     - [ 10,  13,   122.4,   122.4]
@@ -617,6 +833,17 @@ routes:
     - [ 10,  33,      69,      69]
     - [ 10,  34,   107.9,   107.9]
     - [ 10,  35,     119,     119]
+    - [ 10,  36,   111.5,   111.5]
+    - [ 10,  37,   109.9,   109.9]
+    - [ 10,  38,    38.1,    38.1]
+    - [ 10,  39,    46.3,    46.3]
+    - [ 10,  40,     112,     112]
+    - [ 10,  41,   144.7,   144.7]
+    - [ 10,  42,    92.6,    92.6]
+    - [ 10,  43,    98.6,    98.6]
+    - [ 10,  44,   112.3,   112.3]
+    - [ 10,  45,   109.7,   109.7]
+    - [ 10,  46,   111.1,   111.1]
     - [ 11,  12,    35.2,    35.2]
     - [ 11,  13,    25.6,    25.6]
     - [ 11,  14,    47.1,    47.1]
@@ -641,6 +868,17 @@ routes:
     - [ 11,  33,    37.2,    37.2]
     - [ 11,  34,    88.1,    88.1]
     - [ 11,  35,    22.1,    22.1]
+    - [ 11,  36,    14.6,    14.6]
+    - [ 11,  37,    13.1,    13.1]
+    - [ 11,  38,    70.4,    70.4]
+    - [ 11,  39,    70.5,    70.5]
+    - [ 11,  40,    97.1,    97.1]
+    - [ 11,  41,   136.2,   136.2]
+    - [ 11,  42,      25,      25]
+    - [ 11,  43,     4.9,     4.9]
+    - [ 11,  44,    45.1,    45.1]
+    - [ 11,  45,    12.3,    12.3]
+    - [ 11,  46,    13.8,    13.8]
     - [ 12,  13,    60.3,    60.3]
     - [ 12,  14,    67.5,    67.5]
     - [ 12,  15,    56.8,    56.8]
@@ -664,6 +902,17 @@ routes:
     - [ 12,  33,    57.2,    57.2]
     - [ 12,  34,    59.2,    59.2]
     - [ 12,  35,    56.8,    56.8]
+    - [ 12,  36,    49.3,    49.3]
+    - [ 12,  37,    47.7,    47.7]
+    - [ 12,  38,      90,      90]
+    - [ 12,  39,    90.1,    90.1]
+    - [ 12,  40,    69.5,    69.5]
+    - [ 12,  41,   108.6,   108.6]
+    - [ 12,  42,    47.2,    47.2]
+    - [ 12,  43,    37.3,    37.3]
+    - [ 12,  44,     9.9,     9.9]
+    - [ 12,  45,      47,      47]
+    - [ 12,  46,    48.5,    48.5]
     - [ 13,  14,    71.4,    71.4]
     - [ 13,  15,    11.5,    11.5]
     - [ 13,  16,    87.2,    87.2]
@@ -686,6 +935,17 @@ routes:
     - [ 13,  33,    61.4,    61.4]
     - [ 13,  34,   113.2,   113.2]
     - [ 13,  35,     5.8,     5.8]
+    - [ 13,  36,      12,      12]
+    - [ 13,  37,    16.8,    16.8]
+    - [ 13,  38,    94.7,    94.7]
+    - [ 13,  39,    94.7,    94.7]
+    - [ 13,  40,   122.2,   122.2]
+    - [ 13,  41,   161.2,   161.2]
+    - [ 13,  42,    49.3,    49.3]
+    - [ 13,  43,    26.9,    26.9]
+    - [ 13,  44,    70.2,    70.2]
+    - [ 13,  45,    22.1,    22.1]
+    - [ 13,  46,    23.2,    23.2]
     - [ 14,  15,    67.9,    67.9]
     - [ 14,  16,    90.4,    90.4]
     - [ 14,  17,   116.7,   116.7]
@@ -707,6 +967,17 @@ routes:
     - [ 14,  33,    11.1,    11.1]
     - [ 14,  34,   105.9,   105.9]
     - [ 14,  35,    67.9,    67.9]
+    - [ 14,  36,    60.4,    60.4]
+    - [ 14,  37,    58.9,    58.9]
+    - [ 14,  38,    25.5,    25.5]
+    - [ 14,  39,    25.6,    25.6]
+    - [ 14,  40,   111.7,   111.7]
+    - [ 14,  41,   144.4,   144.4]
+    - [ 14,  42,    33.6,    33.6]
+    - [ 14,  43,    47.6,    47.6]
+    - [ 14,  44,    77.4,    77.4]
+    - [ 14,  45,    58.6,    58.6]
+    - [ 14,  46,    60.1,    60.1]
     - [ 15,  16,    83.6,    83.6]
     - [ 15,  17,   123.7,   123.7]
     - [ 15,  18,      29,      29]
@@ -727,6 +998,17 @@ routes:
     - [ 15,  33,    57.9,    57.9]
     - [ 15,  34,   109.7,   109.7]
     - [ 15,  35,     6.4,     6.4]
+    - [ 15,  36,     8.5,     8.5]
+    - [ 15,  37,    13.3,    13.3]
+    - [ 15,  38,    91.2,    91.2]
+    - [ 15,  39,    91.2,    91.2]
+    - [ 15,  40,   118.7,   118.7]
+    - [ 15,  41,   157.7,   157.7]
+    - [ 15,  42,    45.8,    45.8]
+    - [ 15,  43,    23.4,    23.4]
+    - [ 15,  44,    66.7,    66.7]
+    - [ 15,  45,    18.6,    18.6]
+    - [ 15,  46,    19.7,    19.7]
     - [ 16,  17,    53.3,    53.3]
     - [ 16,  18,    56.7,    56.7]
     - [ 16,  19,    91.3,    91.3]
@@ -746,6 +1028,17 @@ routes:
     - [ 16,  33,    84.1,    84.1]
     - [ 16,  34,      38,      38]
     - [ 16,  35,    83.7,    83.7]
+    - [ 16,  36,    76.2,    76.2]
+    - [ 16,  37,    74.6,    74.6]
+    - [ 16,  38,     101,     101]
+    - [ 16,  39,   108.5,   108.5]
+    - [ 16,  40,    48.2,    48.2]
+    - [ 16,  41,    87.8,    87.8]
+    - [ 16,  42,    74.1,    74.1]
+    - [ 16,  43,    64.2,    64.2]
+    - [ 16,  44,      20,      20]
+    - [ 16,  45,    73.9,    73.9]
+    - [ 16,  46,    75.4,    75.4]
     - [ 17,  18,    95.2,    95.2]
     - [ 17,  19,   131.4,   131.4]
     - [ 17,  20,   110.7,   110.7]
@@ -764,6 +1057,17 @@ routes:
     - [ 17,  33,   113.4,   113.4]
     - [ 17,  34,    18.3,    18.3]
     - [ 17,  35,   123.8,   123.8]
+    - [ 17,  36,   116.3,   116.3]
+    - [ 17,  37,   114.7,   114.7]
+    - [ 17,  38,   118.5,   118.5]
+    - [ 17,  39,   126.1,   126.1]
+    - [ 17,  40,     5.1,     5.1]
+    - [ 17,  41,    57.1,    57.1]
+    - [ 17,  42,   106.4,   106.4]
+    - [ 17,  43,   104.3,   104.3]
+    - [ 17,  44,    67.9,    67.9]
+    - [ 17,  45,     114,     114]
+    - [ 17,  46,   115.5,   115.5]
     - [ 18,  19,    36.6,    36.6]
     - [ 18,  20,    23.7,    23.7]
     - [ 18,  21,   114.8,   114.8]
@@ -781,6 +1085,17 @@ routes:
     - [ 18,  33,    31.5,    31.5]
     - [ 18,  34,    81.1,    81.1]
     - [ 18,  35,      29,      29]
+    - [ 18,  36,    21.5,    21.5]
+    - [ 18,  37,      20,      20]
+    - [ 18,  38,    64.7,    64.7]
+    - [ 18,  39,    64.8,    64.8]
+    - [ 18,  40,    90.1,    90.1]
+    - [ 18,  41,   129.2,   129.2]
+    - [ 18,  42,    19.4,    19.4]
+    - [ 18,  43,     9.2,     9.2]
+    - [ 18,  44,    39.7,    39.7]
+    - [ 18,  45,    19.7,    19.7]
+    - [ 18,  46,    21.1,    21.1]
     - [ 19,  20,    57.8,    57.8]
     - [ 19,  21,     151,     151]
     - [ 19,  22,   112.6,   112.6]
@@ -797,6 +1112,17 @@ routes:
     - [ 19,  33,    65.6,    65.6]
     - [ 19,  34,   117.3,   117.3]
     - [ 19,  35,     7.7,     7.7]
+    - [ 19,  36,    16.1,    16.1]
+    - [ 19,  37,      21,      21]
+    - [ 19,  38,    98.8,    98.8]
+    - [ 19,  39,    98.9,    98.9]
+    - [ 19,  40,   126.3,   126.3]
+    - [ 19,  41,   165.4,   165.4]
+    - [ 19,  42,    53.4,    53.4]
+    - [ 19,  43,      31,      31]
+    - [ 19,  44,    74.3,    74.3]
+    - [ 19,  45,    26.2,    26.2]
+    - [ 19,  46,    27.3,    27.3]
     - [ 20,  21,   130.3,   130.3]
     - [ 20,  22,    92.9,    92.9]
     - [ 20,  23,    38.5,    38.5]
@@ -812,6 +1138,17 @@ routes:
     - [ 20,  33,    26.1,    26.1]
     - [ 20,  34,    96.7,    96.7]
     - [ 20,  35,    50.2,    50.2]
+    - [ 20,  36,    42.7,    42.7]
+    - [ 20,  37,    41.1,    41.1]
+    - [ 20,  38,    59.3,    59.3]
+    - [ 20,  39,    59.4,    59.4]
+    - [ 20,  40,   105.7,   105.7]
+    - [ 20,  41,   144.7,   144.7]
+    - [ 20,  42,     4.3,     4.3]
+    - [ 20,  43,    29.8,    29.8]
+    - [ 20,  44,    61.4,    61.4]
+    - [ 20,  45,    40.8,    40.8]
+    - [ 20,  46,    42.3,    42.3]
     - [ 21,  22,    69.8,    69.8]
     - [ 21,  23,   131.7,   131.7]
     - [ 21,  24,    89.1,    89.1]
@@ -826,6 +1163,17 @@ routes:
     - [ 21,  33,   119.5,   119.5]
     - [ 21,  34,    63.3,    63.3]
     - [ 21,  35,   143.4,   143.4]
+    - [ 21,  36,   135.9,   135.9]
+    - [ 21,  37,   134.3,   134.3]
+    - [ 21,  38,     105,     105]
+    - [ 21,  39,   112.5,   112.5]
+    - [ 21,  40,    63.4,    63.4]
+    - [ 21,  41,      95,      95]
+    - [ 21,  42,     126,     126]
+    - [ 21,  43,   123.9,   123.9]
+    - [ 21,  44,    97.9,    97.9]
+    - [ 21,  45,   133.6,   133.6]
+    - [ 21,  46,   135.1,   135.1]
     - [ 22,  23,    93.3,    93.3]
     - [ 22,  24,      94,      94]
     - [ 22,  25,   109.3,   109.3]
@@ -839,6 +1187,17 @@ routes:
     - [ 22,  33,    96.4,    96.4]
     - [ 22,  34,    13.8,    13.8]
     - [ 22,  35,     105,     105]
+    - [ 22,  36,    97.5,    97.5]
+    - [ 22,  37,    95.9,    95.9]
+    - [ 22,  38,   103.9,   103.9]
+    - [ 22,  39,   111.5,   111.5]
+    - [ 22,  40,    25.8,    25.8]
+    - [ 22,  41,    69.5,    69.5]
+    - [ 22,  42,    88.5,    88.5]
+    - [ 22,  43,    85.5,    85.5]
+    - [ 22,  44,    46.6,    46.6]
+    - [ 22,  45,    95.2,    95.2]
+    - [ 22,  46,    96.7,    96.7]
     - [ 23,  24,    88.7,    88.7]
     - [ 23,  25,    77.8,    77.8]
     - [ 23,  26,    89.6,    89.6]
@@ -851,6 +1210,17 @@ routes:
     - [ 23,  33,    46.3,    46.3]
     - [ 23,  34,      98,      98]
     - [ 23,  35,    11.7,    11.7]
+    - [ 23,  36,     4.2,     4.2]
+    - [ 23,  37,     3.3,     3.3]
+    - [ 23,  38,    79.5,    79.5]
+    - [ 23,  39,    79.6,    79.6]
+    - [ 23,  40,     107,     107]
+    - [ 23,  41,   146.1,   146.1]
+    - [ 23,  42,    34.1,    34.1]
+    - [ 23,  43,    11.8,    11.8]
+    - [ 23,  44,      55,      55]
+    - [ 23,  45,     7.4,     7.4]
+    - [ 23,  46,     8.8,     8.8]
     - [ 24,  25,    32.3,    32.3]
     - [ 24,  26,    75.2,    75.2]
     - [ 24,  27,   105.6,   105.6]
@@ -862,6 +1232,17 @@ routes:
     - [ 24,  33,    52.5,    52.5]
     - [ 24,  34,      96,      96]
     - [ 24,  35,   100.4,   100.4]
+    - [ 24,  36,    92.9,    92.9]
+    - [ 24,  37,    91.4,    91.4]
+    - [ 24,  38,    26.2,    26.2]
+    - [ 24,  39,    34.4,    34.4]
+    - [ 24,  40,   101.5,   101.5]
+    - [ 24,  41,   134.2,   134.2]
+    - [ 24,  42,    76.1,    76.1]
+    - [ 24,  43,    80.1,    80.1]
+    - [ 24,  44,    93.8,    93.8]
+    - [ 24,  45,    91.1,    91.1]
+    - [ 24,  46,    92.6,    92.6]
     - [ 25,  26,    92.5,    92.5]
     - [ 25,  27,    94.6,    94.6]
     - [ 25,  28,   106.2,   106.2]
@@ -872,6 +1253,17 @@ routes:
     - [ 25,  33,    32.7,    32.7]
     - [ 25,  34,   113.1,   113.1]
     - [ 25,  35,    89.5,    89.5]
+    - [ 25,  36,      82,      82]
+    - [ 25,  37,    80.4,    80.4]
+    - [ 25,  38,     6.8,     6.8]
+    - [ 25,  39,     2.4,     2.4]
+    - [ 25,  40,   118.9,   118.9]
+    - [ 25,  41,   151.6,   151.6]
+    - [ 25,  42,    55.1,    55.1]
+    - [ 25,  43,    69.2,    69.2]
+    - [ 25,  44,    98.1,    98.1]
+    - [ 25,  45,    80.2,    80.2]
+    - [ 25,  46,    81.6,    81.6]
     - [ 26,  27,   106.4,   106.4]
     - [ 26,  28,    45.6,    45.6]
     - [ 26,  29,    87.2,    87.2]
@@ -881,6 +1273,17 @@ routes:
     - [ 26,  33,      82,      82]
     - [ 26,  34,    22.2,    22.2]
     - [ 26,  35,   101.3,   101.3]
+    - [ 26,  36,    93.8,    93.8]
+    - [ 26,  37,    92.2,    92.2]
+    - [ 26,  38,    87.1,    87.1]
+    - [ 26,  39,    94.7,    94.7]
+    - [ 26,  40,    26.4,    26.4]
+    - [ 26,  41,    59.1,    59.1]
+    - [ 26,  42,    83.9,    83.9]
+    - [ 26,  43,    81.8,    81.8]
+    - [ 26,  44,    52.2,    52.2]
+    - [ 26,  45,    91.5,    91.5]
+    - [ 26,  46,      93,      93]
     - [ 27,  28,    86.1,    86.1]
     - [ 27,  29,   105.4,   105.4]
     - [ 27,  30,    44.9,    44.9]
@@ -889,6 +1292,17 @@ routes:
     - [ 27,  33,    63.1,    63.1]
     - [ 27,  34,   114.9,   114.9]
     - [ 27,  35,     5.2,     5.2]
+    - [ 27,  36,    13.6,    13.6]
+    - [ 27,  37,    18.5,    18.5]
+    - [ 27,  38,    96.3,    96.3]
+    - [ 27,  39,    96.4,    96.4]
+    - [ 27,  40,   123.9,   123.9]
+    - [ 27,  41,   162.9,   162.9]
+    - [ 27,  42,      51,      51]
+    - [ 27,  43,    28.6,    28.6]
+    - [ 27,  44,    71.9,    71.9]
+    - [ 27,  45,    23.7,    23.7]
+    - [ 27,  46,    24.9,    24.9]
     - [ 28,  29,   103.1,   103.1]
     - [ 28,  30,    44.5,    44.5]
     - [ 28,  31,    71.2,    71.2]
@@ -896,24 +1310,167 @@ routes:
     - [ 28,  33,    81.3,    81.3]
     - [ 28,  34,    41.6,    41.6]
     - [ 28,  35,      81,      81]
+    - [ 28,  36,    73.5,    73.5]
+    - [ 28,  37,    71.9,    71.9]
+    - [ 28,  38,   101.8,   101.8]
+    - [ 28,  39,     108,     108]
+    - [ 28,  40,    51.9,    51.9]
+    - [ 28,  41,    91.5,    91.5]
+    - [ 28,  42,    71.3,    71.3]
+    - [ 28,  43,    61.5,    61.5]
+    - [ 28,  44,      16,      16]
+    - [ 28,  45,    71.2,    71.2]
+    - [ 28,  46,    72.6,    72.6]
     - [ 29,  30,    72.2,    72.2]
     - [ 29,  31,    90.5,    90.5]
     - [ 29,  32,    28.3,    28.3]
     - [ 29,  33,    46.8,    46.8]
     - [ 29,  34,   107.9,   107.9]
     - [ 29,  35,   100.2,   100.2]
+    - [ 29,  36,    92.7,    92.7]
+    - [ 29,  37,    91.2,    91.2]
+    - [ 29,  38,    13.5,    13.5]
+    - [ 29,  39,    21.7,    21.7]
+    - [ 29,  40,   113.6,   113.6]
+    - [ 29,  41,   146.3,   146.3]
+    - [ 29,  42,    69.3,    69.3]
+    - [ 29,  43,    79.9,    79.9]
+    - [ 29,  44,    97.5,    97.5]
+    - [ 29,  45,    90.9,    90.9]
+    - [ 29,  46,    92.4,    92.4]
     - [ 30,  31,      30,      30]
     - [ 30,  32,    92.5,    92.5]
     - [ 30,  33,    37.3,    37.3]
     - [ 30,  34,    72.2,    72.2]
     - [ 30,  35,    39.8,    39.8]
+    - [ 30,  36,    32.2,    32.2]
+    - [ 30,  37,    30.7,    30.7]
+    - [ 30,  38,    70.2,    70.2]
+    - [ 30,  39,    70.2,    70.2]
+    - [ 30,  40,    81.2,    81.2]
+    - [ 30,  41,   120.2,   120.2]
+    - [ 30,  42,    27.3,    27.3]
+    - [ 30,  43,    20.2,    20.2]
+    - [ 30,  44,    30.2,    30.2]
+    - [ 30,  45,      30,      30]
+    - [ 30,  46,    31.4,    31.4]
     - [ 31,  32,   111.2,   111.2]
     - [ 31,  33,    48.2,    48.2]
     - [ 31,  34,     100,     100]
     - [ 31,  35,    10.4,    10.4]
+    - [ 31,  36,     2.9,     2.9]
+    - [ 31,  37,     4.5,     4.5]
+    - [ 31,  38,    81.5,    81.5]
+    - [ 31,  39,    81.6,    81.6]
+    - [ 31,  40,     109,     109]
+    - [ 31,  41,   148.1,   148.1]
+    - [ 31,  42,    36.1,    36.1]
+    - [ 31,  43,    13.7,    13.7]
+    - [ 31,  44,      57,      57]
+    - [ 31,  45,     8.2,     8.2]
+    - [ 31,  46,     9.3,     9.3]
     - [ 32,  33,      71,      71]
     - [ 32,  34,   117.1,   117.1]
     - [ 32,  35,   120.9,   120.9]
+    - [ 32,  36,   113.4,   113.4]
+    - [ 32,  37,   111.9,   111.9]
+    - [ 32,  38,    38.4,    38.4]
+    - [ 32,  39,    46.6,    46.6]
+    - [ 32,  40,   121.2,   121.2]
+    - [ 32,  41,   153.9,   153.9]
+    - [ 32,  42,    94.3,    94.3]
+    - [ 32,  43,   100.6,   100.6]
+    - [ 32,  44,   117.7,   117.7]
+    - [ 32,  45,   111.6,   111.6]
+    - [ 32,  46,   113.1,   113.1]
     - [ 33,  34,   100.2,   100.2]
     - [ 33,  35,      58,      58]
+    - [ 33,  36,    50.5,    50.5]
+    - [ 33,  37,    48.9,    48.9]
+    - [ 33,  38,    34.4,    34.4]
+    - [ 33,  39,    34.4,    34.4]
+    - [ 33,  40,   108.3,   108.3]
+    - [ 33,  41,     141,     141]
+    - [ 33,  42,    23.6,    23.6]
+    - [ 33,  43,    37.6,    37.6]
+    - [ 33,  44,    67.1,    67.1]
+    - [ 33,  45,    48.7,    48.7]
+    - [ 33,  46,    50.1,    50.1]
     - [ 34,  35,   109.7,   109.7]
+    - [ 34,  36,   102.2,   102.2]
+    - [ 34,  37,   100.7,   100.7]
+    - [ 34,  38,   107.7,   107.7]
+    - [ 34,  39,   115.3,   115.3]
+    - [ 34,  40,    13.2,    13.2]
+    - [ 34,  41,    56.9,    56.9]
+    - [ 34,  42,    92.3,    92.3]
+    - [ 34,  43,    90.2,    90.2]
+    - [ 34,  44,    52.6,    52.6]
+    - [ 34,  45,     100,     100]
+    - [ 34,  46,   101.4,   101.4]
+    - [ 35,  36,     8.5,     8.5]
+    - [ 35,  37,    13.4,    13.4]
+    - [ 35,  38,    91.2,    91.2]
+    - [ 35,  39,    91.3,    91.3]
+    - [ 35,  40,   118.7,   118.7]
+    - [ 35,  41,   157.8,   157.8]
+    - [ 35,  42,    45.8,    45.8]
+    - [ 35,  43,    23.5,    23.5]
+    - [ 35,  44,    66.7,    66.7]
+    - [ 35,  45,    18.6,    18.6]
+    - [ 35,  46,    19.7,    19.7]
+    - [ 36,  37,     5.9,     5.9]
+    - [ 36,  38,    83.7,    83.7]
+    - [ 36,  39,    83.8,    83.8]
+    - [ 36,  40,   111.2,   111.2]
+    - [ 36,  41,   150.3,   150.3]
+    - [ 36,  42,    38.3,    38.3]
+    - [ 36,  43,      16,      16]
+    - [ 36,  44,    59.2,    59.2]
+    - [ 36,  45,    11.1,    11.1]
+    - [ 36,  46,    12.2,    12.2]
+    - [ 37,  38,    82.1,    82.1]
+    - [ 37,  39,    82.2,    82.2]
+    - [ 37,  40,   109.7,   109.7]
+    - [ 37,  41,   148.7,   148.7]
+    - [ 37,  42,    36.8,    36.8]
+    - [ 37,  43,    14.4,    14.4]
+    - [ 37,  44,    57.7,    57.7]
+    - [ 37,  45,    10.7,    10.7]
+    - [ 37,  46,    12.1,    12.1]
+    - [ 38,  39,     8.9,     8.9]
+    - [ 38,  40,   113.5,   113.5]
+    - [ 38,  41,   146.2,   146.2]
+    - [ 38,  42,    56.9,    56.9]
+    - [ 38,  43,    70.9,    70.9]
+    - [ 38,  44,    96.2,    96.2]
+    - [ 38,  45,    81.9,    81.9]
+    - [ 38,  46,    83.3,    83.3]
+    - [ 39,  40,     121,     121]
+    - [ 39,  41,   153.7,   153.7]
+    - [ 39,  42,    56.9,    56.9]
+    - [ 39,  43,    70.9,    70.9]
+    - [ 39,  44,    99.9,    99.9]
+    - [ 39,  45,      82,      82]
+    - [ 39,  46,    83.4,    83.4]
+    - [ 40,  41,    53.2,    53.2]
+    - [ 40,  42,   101.3,   101.3]
+    - [ 40,  43,    99.2,    99.2]
+    - [ 40,  44,    62.8,    62.8]
+    - [ 40,  45,     109,     109]
+    - [ 40,  46,   110.4,   110.4]
+    - [ 41,  42,   140.4,   140.4]
+    - [ 41,  43,   138.3,   138.3]
+    - [ 41,  44,   101.9,   101.9]
+    - [ 41,  45,     148,     148]
+    - [ 41,  46,   149.5,   149.5]
+    - [ 42,  43,    25.5,    25.5]
+    - [ 42,  44,    57.1,    57.1]
+    - [ 42,  45,    36.5,    36.5]
+    - [ 42,  46,      38,      38]
+    - [ 43,  44,    47.2,    47.2]
+    - [ 43,  45,    14.1,    14.1]
+    - [ 43,  46,    15.6,    15.6]
+    - [ 44,  45,      57,      57]
+    - [ 44,  46,    58.4,    58.4]
+    - [ 45,  46,     1.4,     1.4]

@@ -20,7 +20,7 @@ def test_yaml_agrees_with_geometry(name):
 
     assert d["surface"]["cells"] == s.n_cells
     assert d["surface"]["area_m2"] == pytest.approx(s.n_cells * s.cell_area)
-    assert d["graph"]["vertices"] == s.n_nodes == len(d["graph"]["vertices_list"])
+    assert d["graph"]["vertices"] == s.n_vertices == len(d["graph"]["vertices_list"])
     assert d["graph"]["edges"] == s.edge_ij.shape[0] == len(d["graph"]["edges_list"])
     assert d["graph"]["edges_shady"] == int(s.edge_shady.sum())
     assert d["graph"]["edges_regular"] == int((~s.edge_shady).sum())
@@ -34,15 +34,15 @@ def test_yaml_agrees_with_geometry(name):
 def test_graph_is_well_formed(name):
     s = scene_mod.load(name)
     assert s.edge_ij.min() >= 0
-    assert s.edge_ij.max() < s.n_nodes
+    assert s.edge_ij.max() < s.n_vertices
     assert (s.edge_ij[:, 0] != s.edge_ij[:, 1]).all(), "no self-loops"
-    assert len(s.detection) == len(s.rim) == s.n_nodes
+    assert len(s.detection) == len(s.detection_boundary) == s.n_vertices
     for d in s.detection:
         assert d.size == 0 or (d.min() >= 0 and d.max() < s.n_cells)
     # a guard region lies inside the detection set of one of its endpoints
     for k in range(min(30, s.edge_ij.shape[0])):
         i, j = s.edge_ij[k]
-        g = s.guard[k]
+        g = s.guard_region[k]
         seen = np.isin(g, s.detection[i]) | np.isin(g, s.detection[j])
         assert seen.all()
 
@@ -50,7 +50,7 @@ def test_graph_is_well_formed(name):
 @pytest.mark.parametrize("name", NAMES)
 def test_travel_times_are_distance_over_speed(name):
     s = scene_mod.load(name)
-    v = s.doc["robot"]["speed_m_s"]
+    v = s.doc["platform"]["speed_m_s"]
     T, D = s.travel_seconds, s.travel_metres
     ok = np.isfinite(T) & np.isfinite(D)
     assert np.allclose(T[ok], D[ok] / v, rtol=1e-4)
@@ -76,7 +76,7 @@ def test_every_edge_carries_the_path_the_robot_walks(name):
     assert s.doc["routes"]["polylines_for_graph_edges"] == \
         sum(1 for r in s.routes if len(r))
 
-    ends = s.cell_xyz[s.node_cell]
+    ends = s.cell_xyz[s.vertex_cell]
     for k in range(min(60, s.edge_ij.shape[0])):
         i, j = (int(v) for v in s.edge_ij[k])
         r = s.routes[k]
@@ -131,3 +131,48 @@ def test_specks_leave_the_evader_space():
     assert tight.evader_edges[0].size < loose.evader_edges[0].size
     # only uncoverable cells are ever dropped
     assert not tight.excluded[tight.coverable].any()
+
+
+def test_the_speck_filter_may_not_cut_the_site_up():
+    """A speck that is holding two pieces of surface together stays.
+
+    THE FAILURE THIS PREVENTS is not a wrong area, it is a wrong verdict. A
+    fragment is dropped because nothing can SEE it, which says nothing about
+    whether it is load-bearing; some of them are thresholds -- a gate, a
+    step-over -- and taking one out stops the propagator being able to walk an
+    evader through the doorway. A strategy that leaves a leak on the far side
+    is then recorded as clearing the site. On Blenheim Palace that was the
+    difference between 11 055 m2 contaminated and `cleared`.
+
+    THE INVARIANT, stated exactly: no piece of the whole walkable surface may
+    be SPLIT by the removal. Whatever survives of one connected piece of the
+    lattice must still be connected to itself in the evader space. A piece may
+    vanish entirely -- that is a fragment that was nothing but speck -- and it
+    may lose cells at its fringe, but it may not come apart.
+    """
+    import numpy as np
+    from scipy.sparse.csgraph import connected_components
+
+    from clearing.scene import _csr
+
+    for name in scene_mod.available():
+        s = scene_mod.load(name)
+        la, lb = s.lattice
+        ea, eb = s.evader_edges
+        whole = connected_components(_csr(la, lb, s.n_cells), directed=False)[1]
+        left = connected_components(_csr(ea, eb, s.n_cells), directed=False)[1]
+        keep = ~s.excluded
+        # one label of the reduced graph per label of the whole one
+        order = np.argsort(whole[keep], kind="stable")
+        w, q = whole[keep][order], left[keep][order]
+        cut = np.flatnonzero(np.r_[True, w[1:] != w[:-1], True])
+        for lo, hi in zip(cut[:-1], cut[1:]):
+            assert np.unique(q[lo:hi]).size == 1, (
+                f"{name}: surface piece {w[lo]} was split into "
+                f"{np.unique(q[lo:hi]).size} by the speck filter")
+
+
+def test_only_uncoverable_cells_are_ever_excluded():
+    for name in scene_mod.available():
+        s = scene_mod.load(name)
+        assert not s.excluded[s.coverable].any(), name

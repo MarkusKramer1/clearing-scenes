@@ -1,45 +1,45 @@
-"""Who each robot is, and the ground it walks between two steps.
+"""Who each machine is, and the ground it walks between two steps.
 
-A schedule says which vertices are occupied at every step and nothing else. It
+A strategy says which vertices are occupied at every step and nothing else. It
 is a sequence of SETS, and a set has no memory: step 12 holding {3, 9, 41} and
-step 13 holding {3, 9, 44} does not say whether the robot at 41 walked to 44 or
+step 13 holding {3, 9, 44} does not say whether the machine at 41 walked to 44 or
 whether the one at 9 did and 41 was abandoned. Without that, a viewer can only
 blink occupied vertices on and off, and a reader cannot follow one machine
 through the plan.
 
-This module puts identities on a schedule. A fleet of robots, each with an id
+This module puts identities on a strategy. A fleet of machines, each with an id
 it keeps from the step it walks on to the site until the end; step to step the
-fleet is matched to the vertices the schedule wants by least total travel
+fleet is matched to the vertices the strategy wants by least total travel
 (`scipy.optimize.linear_sum_assignment`); and every leg comes with the path the
-robot actually walks over the walkable surface, not the straight line.
+machine actually walks over the walkable surface, not the straight line.
 
 THE FLEET IS THE PEAK TEAM
 --------------------------
-A robot the next step does not need PARKS where it stands and stays in the
+A machine the next step does not need PARKS where it stands and stays in the
 fleet, and the step after that may re-task it. The alternative -- letting
-surplus robots disappear and charging a fresh one to walk on from the entry
+surplus machines disappear and charging a fresh one to walk on from the entry
 whenever the team grows again -- is what `verify.makespan` used to do, and on
-these scenes it invents robots wholesale: Bodleian Library peaks at 21 and
+these scenes it invents machines wholesale: Bodleian Library peaks at 21 and
 would need 53 distinct machines, Christ Church 16 against 42. Those numbers are
 an artefact of the bookkeeping, not of the plan.
 
 Parking instead makes the fleet exactly the peak team, which is the number the
-tables report, and it is also the cheaper schedule: a parked robot two vertices
+tables report, and it is also the cheaper strategy: a parked machine two vertices
 away is a candidate the assignment can pick over a fresh one at the entry.
 `verify.makespan` is now this module, so the time and the identities cannot
 disagree.
 
 WHAT PARKING IS NOT
 -------------------
-A parked robot is standing at a vertex and therefore does see `D(v)` -- but the
-verifier credits only the vertices the schedule names, so that sight is free
+A parked machine is standing at a vertex and therefore does see `D(v)` -- but the
+verifier credits only the vertices the strategy names, so that sight is free
 and uncounted. The guarantee is unaffected in the safe direction: every cell
 `verify.propagate` calls cleared is cleared by the named vertices alone.
 
 Nor does the walking enter the guarantee. Steps are instantaneous in the model
-and a robot in transit watches nothing; the evader is arbitrarily fast, so
+and a machine in transit watches nothing; the evader is arbitrarily fast, so
 whether the scene is cleared is a combinatorial statement about the detection
-sets and carries no time at all. The legs here are what a schedule COSTS and
+sets and carries no time at all. The legs here are what a strategy COSTS and
 what it LOOKS LIKE, never what makes it correct.
 """
 
@@ -50,7 +50,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from .scene import Scene, lattice_edges
-from .verify import Schedule
+from .verify import Strategy
 
 
 # ---------------------------------------------------------------------------
@@ -59,10 +59,10 @@ from .verify import Schedule
 
 
 @dataclass
-class Move:
-    """One robot's leg into one step: where it came from and what it cost."""
+class Leg:
+    """One machine's leg into one step: where it came from and what it cost."""
 
-    robot: int
+    machine: int
     frm: int
     to: int
     seconds: float
@@ -76,24 +76,24 @@ class Move:
 
 @dataclass
 class Roster:
-    """A schedule with identities: per step, one `Move` per occupied vertex."""
+    """A strategy with identities: per step, one `Leg` per occupied vertex."""
 
-    steps: list[list[Move]] = field(default_factory=list)
+    steps: list[list[Leg]] = field(default_factory=list)
     parked: list[list[int]] = field(default_factory=list)      # per step
-    positions: list[list[int]] = field(default_factory=list)   # per step, per robot
+    positions: list[list[int]] = field(default_factory=list)   # per step, per machine
     step_seconds: list[float] = field(default_factory=list)
     entry: int = -1
-    n_robots: int = 0
+    n_machines: int = 0
 
     @property
     def makespan_s(self) -> float:
-        """A step takes as long as its slowest robot; the run is their sum."""
+        """A step takes as long as its slowest machine; the run is their sum."""
         return float(sum(self.step_seconds))
 
-    def track(self, robot: int) -> list[tuple[int, Move]]:
-        """Every step this robot was given a vertex, with the leg it walked."""
+    def track(self, machine: int) -> list[tuple[int, Leg]]:
+        """Every step this machine was given a vertex, with the leg it walked."""
         return [(t, m) for t, step in enumerate(self.steps)
-                for m in step if m.robot == robot]
+                for m in step if m.machine == machine]
 
     def pairs(self) -> list[tuple[int, int]]:
         """The distinct (from, to) legs walked, for `walked_paths`."""
@@ -101,15 +101,15 @@ class Roster:
         return sorted(seen)
 
 
-def assign(scene: Scene, schedule: Schedule, entry: int | None = None) -> Roster:
-    """Match a fleet to a schedule, step by step, by least total travel.
+def assign(scene: Scene, strategy: Strategy, entry: int | None = None) -> Roster:
+    """Match a fleet to a strategy, step by step, by least total travel.
 
     Robots on site -- working or parked -- are the rows of the cost matrix and
-    the step's vertices are its columns; a robot that keeps its vertex travels
-    nothing. Extra rows are added only when the step wants more robots than the
+    the step's vertices are its columns; a machine that keeps its vertex travels
+    nothing. Extra rows are added only when the step wants more machines than the
     fleet has, and those walk on at `entry`, by default the first vertex of the
     first step. Since a row is added only against a column that needs it, the
-    fleet ends up exactly as large as the largest step: `n_robots == team_peak`.
+    fleet ends up exactly as large as the largest step: `n_machines == n_searchers`.
 
     Least TOTAL travel, while the makespan is a sum of per-step MAXIMA -- the
     assignment optimises the fleet's work, not the step's clock. Matching for
@@ -117,14 +117,14 @@ def assign(scene: Scene, schedule: Schedule, entry: int | None = None) -> Roster
     different claim about what the team is doing; this keeps the objective the
     makespan has always used.
 
-    Vertices a robot cannot reach at all cost `BIG`, so the assignment avoids
+    Vertices a machine cannot reach at all cost `BIG`, so the assignment avoids
     them where it can; such a leg is recorded with an infinite time and left
     out of its step's clock, exactly as the old makespan did.
     """
     from scipy.optimize import linear_sum_assignment
 
-    schedule.validate(scene)
-    steps = [tuple(int(v) for v in st) for st in schedule.steps]
+    strategy.validate(scene)
+    steps = [tuple(int(v) for v in st) for st in strategy.steps]
     if not steps:
         return Roster()
 
@@ -133,12 +133,12 @@ def assign(scene: Scene, schedule: Schedule, entry: int | None = None) -> Roster
     BIG = 1e9
     start = int(steps[0][0]) if entry is None else int(entry)
 
-    at: list[int] = []                      # where each robot of the fleet is
+    at: list[int] = []                      # where each machine of the fleet is
     out = Roster(entry=start)
 
     for want in steps:
         spare = max(0, len(want) - len(at))
-        at.extend([start] * spare)          # the new robots, still at the gate
+        at.extend([start] * spare)          # the new machines, still at the gate
         cost = np.empty((len(at), len(want)))
         for j, v in enumerate(want):
             for i, u in enumerate(at):
@@ -146,26 +146,26 @@ def assign(scene: Scene, schedule: Schedule, entry: int | None = None) -> Roster
                 cost[i, j] = float(c) if np.isfinite(c) else BIG
         rows, cols = linear_sum_assignment(cost)
 
-        moves, working = [], set()
+        legs, working = [], set()
         for i, j in zip(rows, cols):
             v, u = want[j], at[i]
             entered = i >= len(at) - spare
-            moves.append(Move(robot=int(i), frm=int(u), to=int(v),
+            legs.append(Leg(machine=int(i), frm=int(u), to=int(v),
                               seconds=float(T[u, v]), metres=float(D[u, v]),
                               entered=bool(entered)))
             working.add(int(i))
-        for m in moves:
-            at[m.robot] = m.to
+        for m in legs:
+            at[m.machine] = m.to
 
-        walked = [m.seconds for m in moves if np.isfinite(m.seconds)]
-        out.steps.append(sorted(moves, key=lambda m: m.robot))
+        walked = [m.seconds for m in legs if np.isfinite(m.seconds)]
+        out.steps.append(sorted(legs, key=lambda m: m.machine))
         out.parked.append([r for r in range(len(at)) if r not in working])
         out.positions.append(list(at))
         out.step_seconds.append(max(walked) if walked else 0.0)
 
-    out.n_robots = len(at)
-    for row in out.positions:               # robots that walk on later
-        row.extend([-1] * (out.n_robots - len(row)))
+    out.n_machines = len(at)
+    for row in out.positions:               # machines that walk on later
+        row.extend([-1] * (out.n_machines - len(row)))
     return out
 
 
@@ -214,7 +214,7 @@ def _oriented(pts: np.ndarray, scene: Scene, i: int) -> np.ndarray:
     """The polyline, running away from vertex `i` rather than towards it."""
     if pts.shape[0] < 2:
         return pts
-    a = scene.node_xyz[i]
+    a = scene.vertex_xyz[i]
     head = float(np.linalg.norm(pts[0] - a))
     tail = float(np.linalg.norm(pts[-1] - a))
     return pts if head <= tail else pts[::-1].copy()
@@ -227,14 +227,14 @@ def walked_paths(scene: Scene, pairs, eps: float = 0.12, chunk: int = 16,
     `scenes/*.npz` ships one polyline per GUARD-GRAPH edge, and those are used
     unchanged wherever a leg happens to be one -- the viewer must not draw two
     different lines for the same walk. A roster's legs are not confined to the
-    graph, though: a robot re-tasked across the site walks between two vertices
+    graph, though: a machine re-tasked across the site walks between two vertices
     that share no guard region and carry no shipped route, so the rest are
     reconstructed here from a Dijkstra predecessor tree over the same walkable
     lattice `Scene.evader_edges` is built from, with the same step rule.
 
     The reconstructed length is checked against `travel_seconds`' own distance
     matrix and the worst disagreement is returned; anything above `tol` raises,
-    because a drifted lattice would draw robots walking a route their own time
+    because a drifted lattice would draw machines walking a route their own time
     was never made of. Unreachable pairs come back as empty arrays.
     """
     from scipy import sparse
@@ -260,12 +260,12 @@ def walked_paths(scene: Scene, pairs, eps: float = 0.12, chunk: int = 16,
         srcs = sorted(todo)
         for c0 in range(0, len(srcs), chunk):
             block = srcs[c0:c0 + chunk]
-            _, pred = dijkstra(g, indices=scene.node_cell[block], directed=False,
+            _, pred = dijkstra(g, indices=scene.vertex_cell[block], directed=False,
                                return_predecessors=True)
             for row, src in enumerate(block):
-                p, s0 = pred[row], int(scene.node_cell[src])
+                p, s0 = pred[row], int(scene.vertex_cell[src])
                 for j in todo[src]:
-                    path, q = [int(scene.node_cell[j])], int(scene.node_cell[j])
+                    path, q = [int(scene.vertex_cell[j])], int(scene.vertex_cell[j])
                     while q != s0:
                         q = int(p[q])
                         if q < 0:

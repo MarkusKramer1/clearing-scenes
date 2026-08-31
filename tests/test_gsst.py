@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 
 from clearing import gsst, scene as scene_mod, verify
-from tests.test_kolling import corridor
+from conftest import corridor
 
 SMALL = "hb-allen-centre"
 
@@ -49,12 +49,12 @@ def test_a_single_vertex_costs_one():
 
 @pytest.mark.parametrize("k", [2, 3, 5, 12, 40])
 def test_a_path_costs_two_without_sliding(k):
-    """One robot walks a corridor only if it may sweep while it walks.
+    """One machine walks a corridor only if it may sweep while it walks.
 
     Classical edge search gives max{rho_1, rho_2 + 1} = 1 for a path: the
     searcher slides from one end to the other and the corridor is clear behind
     it. Forbidding the slide means the guard has to stand still until somebody
-    else is placed ahead of it, which is the second robot -- and it is two for
+    else is placed ahead of it, which is the second machine -- and it is two for
     any length, not two per junction, because the pair leapfrogs.
     """
     edges = [(i, i + 1) for i in range(k - 1)]
@@ -124,7 +124,7 @@ def test_a_cycle_edge_buys_a_guard():
 
     On the path alone the pair leapfrogs to the end and nothing is left
     standing. Close the ring and the far end is a door back into the cleared
-    start, so the conversion stations a robot on it -- the schedule gets
+    start, so the conversion stations a machine on it -- the strategy gets
     strictly more expensive, and that is the term GSST is minimising over
     trees.
     """
@@ -144,7 +144,13 @@ def test_a_cycle_edge_buys_a_guard():
     cycle_adj[n - 1].append(0)
 
     on_path = [tuple(sorted(s)) for s in steps]
-    on_ring = gsst.to_graph_strategy(n, steps, path_adj, cycle_adj)
+    on_ring, dirty, left = gsst.to_graph_strategy(n, steps, path_adj, cycle_adj)
+
+    # the tree state the conversion read the doors off, and where it ended:
+    # a contiguous strategy on the tree leaves nothing behind, so the last
+    # frame is empty and there is one frame per step
+    assert len(dirty) == len(steps)
+    assert not left.any()
 
     assert gsst.graph_clears(n, on_path, path_adj)[0]
     assert not gsst.graph_clears(n, on_path, ring_adj)[0]     # the door is open
@@ -161,7 +167,7 @@ def test_gsst_clears_the_corridor_scene():
     s = corridor(60, 10)
     r = gsst.run(s, variant="naive", n_trees=5, seed=1)
     assert r.best.cleared
-    assert r.best.team == 2                       # a corridor, without sliding
+    assert r.best.searchers == 2                       # a corridor, without sliding
 
 
 @pytest.mark.parametrize("variant", gsst.VARIANTS)
@@ -169,8 +175,8 @@ def test_gsst_clears_the_graph_on_a_real_scene(variant):
     s = scene_mod.load(SMALL)
     r = gsst.run(s, variant=variant, n_trees=8, seed=1)
     assert r.best.cleared, f"{variant}: {r.best.residual_vertices} vertices left"
-    assert r.best.team <= s.n_nodes
-    assert len(r.teams) == 8
+    assert r.best.searchers <= s.n_vertices
+    assert len(r.searchers_per_draw) == 8
 
 
 def test_the_best_draw_is_reproducible():

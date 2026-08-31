@@ -28,6 +28,7 @@ source:                    # where the geometry came from
   pipeline: e1-clearing-graph, stages 2-6
   occupancy: O-carved (unobserved space blocks)
   graph_file: carved_huav20_R30_seed1
+  vertex_set: repaired-ground
 
 boundary:                  # where the scenario stops
   bounded: true
@@ -42,7 +43,7 @@ boundary:                  # where the scenario stops
   rim_segments: 4424
   rim_length_m: 1769.6     # the whole outline, in the npz as boundary_seg
 
-robot:
+platform:
   kind: ground
   sensor_height_m: 1.0     # the sensor sits this far above the surface
   detection_range_m: 30.0
@@ -112,12 +113,36 @@ whole retained outline, most of which is masonry rather than a drawn line. At
 Christ Church that is 9.5 m of decision against 1 770 m of wall.
 
 **A vertex** is a sampled sensor position on the walkable surface. `xyz` is
-where the sensor is -- `sensor_height_m` above the cell the robot stands on.
-`detection_m2` is the area of `D(v)`, the part of the surface a robot there can
-certify empty; `boundary_cells` is the size of its rim, the cells of `D(v)` with
+where the sensor is -- `sensor_height_m` above the cell the searcher stands on.
+`detection_m2` is the area of `D(p)`, the part of the surface a searcher there can
+certify empty; `detection_boundary_cells` is the size of `dD(p)`, the cells of `D(p)` with
 a walkable neighbour outside it.
 
-**An edge** `(i, j)` exists where a robot at `j` can watch part of the rim of
+**`vertex_set` says which vertices, and it is not E1's sample.** The sampler
+upstream places positions until free space is COVERED -- the art-gallery
+objective the 2010 formulation inherits -- and coverage is not the property a
+clearing argument needs. Two things it leaves behind were measured upstream and
+are repaired before the export:
+
+* fragments that SEVER the walkable surface, watched by nothing. Christ
+  Church's surface is one connected piece and its ground guard graph was in
+  three, the whole split carried by a 0.40 m² gate and a 0.32 m² step-over.
+  One ground sensor per threshold closes it.
+* ground that no GROUND vertex can see -- 16 m² at HB Allen up to 116 m² at
+  the Bodleian, every square metre of it seen by the air family E1 also has
+  and this scenario does not. For a homogeneous ground team that is a
+  permanent contamination source and a floor no strategy can go under.
+
+`repaired-ground` is both repairs, and it is what these files ship. Ground
+vertices against E1's raw sample: HB Allen 20 → 32, Keble 24 → 34, Blenheim
+36 → 47, Observatory 39 → 60, Christ Church 62 → 81, Bodleian 112 → 151.
+`scripts/export_from_e1.py --vertex-set released` reproduces the raw sample,
+which is the control every claim about the repaired one is a claim against.
+
+It is a CHANGE TO THE PROBLEM, not a better solution of it, and the field is
+in every scene file so that a number can never be quoted without it.
+
+**An edge** `(i, j)` exists where a searcher at `j` can watch part of the boundary of
 `D(p_i)`: the guard region `G_ij = dD(p_i) ∩ D(p_j)` of Kolling et al. 2010.
 It is `shady` when its guard region is strictly contained in another vertex's
 and `regular` otherwise. Undirected edges take regular over shady.
@@ -127,10 +152,10 @@ adjacency between regions. That is worth keeping in mind when reading the graph:
 two vertices can be edge-joined across a courtyard they are nowhere near each
 other in.
 
-**A route** is the ground robot's shortest path over the walkable surface,
+**A route** is the platform's shortest path over the walkable surface,
 8-connected with the same `max_step_m` rule, weighted by 3D step length so a
 ramp costs its slope rather than its plan projection. `time_s` is
-`distance_m / speed_m_s`. Pairs the robot cannot reach at all are omitted and
+`distance_m / speed_m_s`. Pairs the platform cannot reach at all are omitted and
 counted in `unreachable_pairs`.
 
 Routes are lattice paths at `cell_size_m`, so they overestimate a smoothed path
@@ -172,7 +197,7 @@ data cannot drift apart -- and it saves about 8 MB per scene.
 | `guard_offsets` / `guard_cells` | CSR | `G_ij` per edge |
 | `travel_seconds` / `travel_metres` | (n, n) f32 | all pairs, `inf` where unreachable |
 | `travel_component` | (n_nodes,) i32 | vertices sharing one can reach each other |
-| `edge_route_points` / `edge_route_offsets` | polylines | per graph edge, the path the robot walks |
+| `edge_route_points` / `edge_route_offsets` | polylines | per graph edge, the path the platform walks |
 | `uncoverable` | (k,) i32 | cells no vertex sees |
 | `boundary_seg` | (n_seg, 2, 2) f32 | the scenario boundary, as line segments in world XY |
 | `boundary_cell_size` | scalar f32 | the raster the boundary was cut on, 0.4 m |

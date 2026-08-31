@@ -182,7 +182,7 @@ def camera_path(scene, n_orbit: int = 48, n_fly: int = 0,
 
     The pass through (`n_fly > 0`) puts the camera at sensor height and walks it
     along the site's principal axis, which shows what the surface looks like
-    from where the robot stands. It is off by default: at the size a GIF is read
+    from where the machine stands. It is off by default: at the size a GIF is read
     at, it costs more frames than it earns.
     """
     xyz = scene.cell_xyz
@@ -246,21 +246,21 @@ def draw_scene(scene, cam: Camera, w: int, h: int, cloud_stride: int = 1,
 
     # the scenario boundary, under the graph: the site stops here, and the
     # surface above stops with it. Two rails at the foot and the top of a low
-    # fence -- see `Scene.boundary_fence` -- in the blue the viewer uses, which
+    # fence -- see `Scene.site_boundary_fence` -- in the blue the viewer uses, which
     # is not the amber of the graph for the reason the viewer gives.
-    if len(scene.boundary_seg):
-        seg = np.asarray(scene.boundary_seg, np.float64)
+    if len(scene.site_boundary_seg):
+        seg = np.asarray(scene.site_boundary_seg, np.float64)
         z = np.full((len(seg), 1), 0.0)
-        for zc in scene.boundary_fence:
+        for zc in scene.site_boundary_fence:
             f.lines(np.column_stack([seg[:, 0], z + zc]),
                     np.column_stack([seg[:, 1], z + zc]),
                     cam, (143, 212, 255), radius=0)
 
     lift = np.array([0.0, 0.0, 0.6])
-    a = scene.node_xyz[scene.edge_ij[:, 0]] + lift
-    b = scene.node_xyz[scene.edge_ij[:, 1]] + lift
+    a = scene.vertex_xyz[scene.edge_ij[:, 0]] + lift
+    b = scene.vertex_xyz[scene.edge_ij[:, 1]] + lift
     reg = ~scene.edge_shady
     f.lines(a[reg], b[reg], cam, (250, 176, 74), radius=0)
     f.lines(a[~reg], b[~reg], cam, (128, 96, 72), radius=0)
-    f.points(scene.node_xyz + lift, cam, (255, 236, 168), radius=2)
+    f.points(scene.vertex_xyz + lift, cam, (255, 236, 168), radius=2)
     return f.rgb
